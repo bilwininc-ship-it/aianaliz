@@ -1,6 +1,7 @@
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import './remote_config_service.dart';
+import 'package:flutter/material.dart';
 
 class GeminiService {
   static final GeminiService _instance = GeminiService._internal();
@@ -12,18 +13,34 @@ class GeminiService {
   
   String get _apiKey => _remoteConfig.geminiApiKey;
 
-  /// 
-  Future<String> analyzeImage(String base64Image) async {
+  /// Analyze image with language support
+  Future<String> analyzeImage(String base64Image, {String languageCode = 'tr'}) async {
     try {
-      // ⭐ 
-      final url = Uri.parse('$_baseUrl/gemini-2.5-flash:generateContent?key=$_apiKey');
+      // ⭐ Dynamic prompt based on language
+      final String prompt = languageCode == 'en' 
+          ? '''Analyze the football matches in this image and extract team names for each match.
 
-      final body = jsonEncode({
-        'contents': [
-          {
-            'parts': [
-              {
-                'text': '''Bu görseldeki futbol maçlarını analiz et ve her maç için takım isimlerini çıkar.
+IMPORTANT: Convert team names to their official English names. Must be compatible with Football-API.com.
+
+Examples:
+- "Espanyol II" → "Espanyol B"
+- "Valencia M." → "Valencia Mestalla"  
+- "Almería B" → "Almeria B"
+- "Girona B" → "Girona B"
+- Convert Turkish characters (ı,ğ,ü,ş,ö,ç) to English (i,g,u,s,o,c)
+
+JSON format:
+{
+  "matches": [
+    {
+      "homeTeam": "Official English Team Name",
+      "awayTeam": "Official English Team Name"
+    }
+  ]
+}
+
+Return only JSON, no additional explanation.'''
+          : '''Bu görseldeki futbol maçlarını analiz et ve her maç için takım isimlerini çıkar.
 
 ÖNEMLİ: Takım isimlerini resmi İngilizce isimlerine çevir. Football-API.com ile uyumlu olmalı.
 
@@ -44,7 +61,16 @@ JSON formatı:
   ]
 }
 
-Sadece JSON döndür, başka açıklama yazma.'''
+Sadece JSON döndür, başka açıklama yazma.''';
+
+      final url = Uri.parse('$_baseUrl/gemini-2.5-flash:generateContent?key=$_apiKey');
+
+      final body = jsonEncode({
+        'contents': [
+          {
+            'parts': [
+              {
+                'text': prompt
               },
               {
                 'inline_data': {

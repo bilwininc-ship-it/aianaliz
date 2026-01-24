@@ -1,6 +1,7 @@
 import 'package:firebase_database/firebase_database.dart';
 import './match_pool_service.dart';
 import './google_ads_service.dart'; // ✅ Google Ads entegrasyonu
+import './notification_service.dart'; // ✅ Push Notification sistemi
 
 /// Uygulama başlangıç servisi - SADECE OKUMA MODU
 /// - Match Pool durumunu kontrol eder
@@ -15,6 +16,7 @@ class AppStartupService {
   final DatabaseReference _database = FirebaseDatabase.instance.ref();
   final MatchPoolService _matchPool = MatchPoolService();
   final GoogleAdsService _googleAds = GoogleAdsService(); // ✅ Google Ads servisi
+  final NotificationService _notificationService = NotificationService(); // ✅ Push Notification servisi
 
   bool _isInitialized = false;
 
@@ -30,6 +32,9 @@ class AppStartupService {
 
       // 0. Google Ads'i başlat (conversion tracking için)
       await _googleAds.initialize();
+
+      // 0.1. Push Notification servisi başlat
+      await _notificationService.initialize();
 
       // 1. Pool durumunu kontrol et (SADECE OKUMA)
       final poolStatus = await _checkPoolStatus();

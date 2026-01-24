@@ -16,6 +16,7 @@ dependencies:
   firebase_database: ^11.1.4  # ✅ Realtime Database eklendi
   firebase_remote_config: ^5.1.4
   cloud_functions: ^5.1.4  # ✅ Cloud Functions (Satın alma doğrulama için)
+  firebase_messaging: ^14.7.9  # ✅ Push Notifications (FCM)
   # ❌ cloud_firestore KALDIRILDI - Realtime Database kullanıyoruz
   # ❌ firebase_storage KALDIRILDI - Görsel kaydedilmiyor
   # ❌ google_sign_in KALDIRILDI - Sadece email/password kullanılıyor
@@ -55,6 +56,9 @@ dependencies:
   
   # Device Info (IP ban sistemi için)
   device_info_plus: ^10.1.0
+  
+  # Local Notifications (FCM foreground notification için)
+  flutter_local_notifications: ^16.3.0
   
   # UI & Fonts
   cupertino_icons: ^1.0.8

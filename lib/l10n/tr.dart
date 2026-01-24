@@ -96,6 +96,25 @@ final Map<String, String> tr = {
   'continue': 'Devam Et',
   'back': 'Geri',
   
+  // Onboarding
+  'onboarding_title_1': 'Bültenin Fotoğrafını Çek',
+  'onboarding_desc_1': 'Gazete veya ekrandan bülteni okut.',
+  'onboarding_title_2': 'Yapay Zeka Analiz Etsin',
+  'onboarding_desc_2': 'Gelişmiş AI algoritması en mantıklı tahminleri saniyeler içinde çıkarsın.',
+  'onboarding_title_3': 'Kazancını Katla',
+  'onboarding_desc_3': 'Yüksek güven oranlı maçlarla kazanmaya başla!',
+  'skip': 'Atla',
+  'start': 'Başla',
+  'next': 'İleri',
+  
+  // Rating & Review
+  'rate_us_title': 'Analizi Beğendin mi?',
+  'rate_us_message': 'Bize 5 yıldız ver, 1 KREDİ kazan!',
+  'rate_now': 'Puanla',
+  'maybe_later': 'Belki Sonra',
+  'rating_thanks': '🎉 Tebrikler! 1 kredi kazandınız',
+  'rating_error': 'Puanlama yapılamadı. Lütfen tekrar deneyin.',
+  
   // Messages
   'login_success': 'Giriş başarılı!',
   'login_error': 'Giriş başarısız. Lütfen bilgilerinizi kontrol edin.',

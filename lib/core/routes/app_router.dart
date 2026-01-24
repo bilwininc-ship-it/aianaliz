@@ -2,6 +2,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../../screens/onboarding/onboarding_screen.dart';
 import '../../screens/auth/login_screen.dart';
 import '../../screens/auth/register_screen.dart';
 import '../../screens/home/home_screen.dart';
@@ -19,7 +21,7 @@ import '../../screens/static/about_screen.dart';
 import '../../screens/static/help_support_screen.dart';
 
 final router = GoRouter(
-  initialLocation: '/login',
+  initialLocation: '/onboarding',
   
   // ✅ Firebase Auth ile oturum kontrolü
   refreshListenable: GoRouterRefreshStream(
@@ -27,31 +29,52 @@ final router = GoRouter(
   ),
   
   // ✅ Yönlendirme mantığı
-  redirect: (context, state) {
+  redirect: (context, state) async {
     final user = FirebaseAuth.instance.currentUser;
     final isLoggedIn = user != null;
-    final isGoingToLogin = state.matchedLocation == '/login';
-    final isGoingToRegister = state.matchedLocation == '/register';
-    final isGoingToPublicPage = state.matchedLocation == '/terms' ||
-        state.matchedLocation == '/privacy' ||
-        state.matchedLocation == '/about' ||
-        state.matchedLocation == '/help';
-
-    // Kullanıcı giriş yapmamışsa ve login/register/public sayfaya gitmiyorsa
-    if (!isLoggedIn && !isGoingToLogin && !isGoingToRegister && !isGoingToPublicPage) {
+    final currentLocation = state.matchedLocation;
+    
+    // Check onboarding status
+    final prefs = await SharedPreferences.getInstance();
+    final onboardingCompleted = prefs.getBool('onboarding_completed') ?? false;
+    
+    // Public pages that don't require auth or onboarding
+    final isPublicPage = currentLocation == '/terms' ||
+        currentLocation == '/privacy' ||
+        currentLocation == '/about' ||
+        currentLocation == '/help';
+    
+    // If onboarding not completed and not on onboarding/public page
+    if (!onboardingCompleted && currentLocation != '/onboarding' && !isPublicPage) {
+      return '/onboarding';
+    }
+    
+    // If onboarding completed but not logged in
+    if (onboardingCompleted && !isLoggedIn && 
+        currentLocation != '/login' && 
+        currentLocation != '/register' && 
+        !isPublicPage) {
       return '/login';
     }
-
-    // Kullanıcı giriş yapmışsa ve login/register sayfasına gitmeye çalışıyorsa
-    if (isLoggedIn && (isGoingToLogin || isGoingToRegister)) {
+    
+    // If logged in and trying to access auth pages
+    if (isLoggedIn && (currentLocation == '/login' || 
+        currentLocation == '/register' || 
+        currentLocation == '/onboarding')) {
       return '/home';
     }
 
-    // Her şey normal
+    // Everything is fine
     return null;
   },
   
   routes: [
+    // Onboarding Route
+    GoRoute(
+      path: '/onboarding',
+      builder: (context, state) => const OnboardingScreen(),
+    ),
+    
     // Auth Routes
     GoRoute(
       path: '/login',

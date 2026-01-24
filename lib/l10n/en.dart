@@ -96,6 +96,25 @@ final Map<String, String> en = {
   'continue': 'Continue',
   'back': 'Back',
   
+  // Onboarding
+  'onboarding_title_1': 'Capture Your Bulletin',
+  'onboarding_desc_1': 'Scan bulletin from newspaper or screen.',
+  'onboarding_title_2': 'AI Analysis Engine',
+  'onboarding_desc_2': 'Advanced AI algorithm generates the most logical predictions in seconds.',
+  'onboarding_title_3': 'Multiply Your Earnings',
+  'onboarding_desc_3': 'Start winning with high-confidence matches!',
+  'skip': 'Skip',
+  'start': 'Get Started',
+  'next': 'Next',
+  
+  // Rating & Review
+  'rate_us_title': 'Enjoyed the Analysis?',
+  'rate_us_message': 'Give us 5 stars and earn 1 CREDIT!',
+  'rate_now': 'Rate Now',
+  'maybe_later': 'Maybe Later',
+  'rating_thanks': '🎉 Congratulations! You earned 1 credit',
+  'rating_error': 'Rating failed. Please try again.',
+  
   // Messages
   'login_success': 'Login successful!',
   'login_error': 'Login failed. Please check your credentials.',

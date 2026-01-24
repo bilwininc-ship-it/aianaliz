@@ -1,0 +1,43 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+    
+    "matchPool": {
+      ".read": true,
+      ".write": true,
+      ".indexOn": ["timestamp", "date"]
+    },
+    
+    "poolMetadata": {
+      ".read": true,
+      ".write": true
+    },
+    
+    "remoteConfig": {
+      ".read": true,
+      ".write": false
+    },
+    
+    "users": {
+      "$uid": {
+        ".read": "$uid === auth.uid",
+        ".write": "$uid === auth.uid"
+      }
+    },
+    
+    "bulletins": {
+      "$uid": {
+        ".read": "$uid === auth.uid",
+        ".write": "$uid === auth.uid"
+      }
+    },
+    
+    "credit_transactions": {
+      "$uid": {
+        ".read": "$uid === auth.uid",
+        ".write": "$uid === auth.uid"
+      }
+    }
+  }
+}

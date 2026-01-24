@@ -2,6 +2,10 @@
     <!-- Google Play In-App Purchase için gerekli -->
     <uses-permission android:name="com.android.vending.BILLING" />
     
+    <!-- İnternet izni (Google Ads için) -->
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+    
     <application
         android:label="AI Spor Analiz"
         android:name="${applicationName}"
@@ -33,6 +37,11 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+        
+        <!-- Google AdMob App ID (Test ID - Production'da değiştirilecek) -->
+        <meta-data
+            android:name="com.google.android.gms.ads.APPLICATION_ID"
+            android:value="ca-app-pub-3940256099942544~3347511713"/>
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and

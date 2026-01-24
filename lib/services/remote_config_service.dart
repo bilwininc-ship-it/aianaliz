@@ -14,6 +14,11 @@ class RemoteConfigService {
     'min_app_version': '1.0.0',
     'force_update': false,
     'maintenance_mode': false,
+    // ✅ Google Ads / AdMob konfigürasyonları
+    'ADMOB_APP_ID': 'ca-app-pub-3940256099942544~3347511713', // Test ID
+    'ADMOB_BANNER_AD_UNIT': '',
+    'ADMOB_INTERSTITIAL_AD_UNIT': '',
+    'ADMOB_REWARDED_AD_UNIT': '',
   };
 
   Future<void> initialize() async {
@@ -65,6 +70,17 @@ class RemoteConfigService {
   String get minAppVersion => _remoteConfig.getString('min_app_version');
   bool get forceUpdate => _remoteConfig.getBool('force_update');
   bool get maintenanceMode => _remoteConfig.getBool('maintenance_mode');
+  
+  // ✅ Google Ads / AdMob getters
+  String get admobAppId => _remoteConfig.getString('ADMOB_APP_ID');
+  String get admobBannerAdUnit => _remoteConfig.getString('ADMOB_BANNER_AD_UNIT');
+  String get admobInterstitialAdUnit => _remoteConfig.getString('ADMOB_INTERSTITIAL_AD_UNIT');
+  String get admobRewardedAdUnit => _remoteConfig.getString('ADMOB_REWARDED_AD_UNIT');
+  // ✅ Google Ads / AdMob getters
+  String get admobAppId => _remoteConfig.getString('ADMOB_APP_ID');
+  String get admobBannerAdUnit => _remoteConfig.getString('ADMOB_BANNER_AD_UNIT');
+  String get admobInterstitialAdUnit => _remoteConfig.getString('ADMOB_INTERSTITIAL_AD_UNIT');
+  String get admobRewardedAdUnit => _remoteConfig.getString('ADMOB_REWARDED_AD_UNIT');
 
   Future<void> refresh() async {
     try {
@@ -86,6 +102,11 @@ class RemoteConfigService {
     print('min_app_version: $minAppVersion');
     print('force_update: $forceUpdate');
     print('maintenance_mode: $maintenanceMode');
+    print('--- Google Ads / AdMob ---');
+    print('ADMOB_APP_ID: ${admobAppId.substring(0, 20)}...');
+    print('ADMOB_BANNER_AD_UNIT: ${admobBannerAdUnit.isEmpty ? "Not configured" : admobBannerAdUnit}');
+    print('ADMOB_INTERSTITIAL_AD_UNIT: ${admobInterstitialAdUnit.isEmpty ? "Not configured" : admobInterstitialAdUnit}');
+    print('ADMOB_REWARDED_AD_UNIT: ${admobRewardedAdUnit.isEmpty ? "Not configured" : admobRewardedAdUnit}');
     print('============================');
   }
 }

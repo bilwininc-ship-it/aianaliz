@@ -44,6 +44,9 @@ dependencies:
   in_app_purchase: ^3.2.3
   in_app_purchase_android: ^0.4.0+8
   
+  # Google Mobile Ads (Conversion Tracking)
+  google_mobile_ads: ^4.0.0
+  
   # URL Launcher (Kullanıcı sözleşmesi, gizlilik politikası için)
   url_launcher: ^6.3.1
   

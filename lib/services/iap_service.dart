@@ -3,10 +3,12 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:in_app_purchase_android/in_app_purchase_android.dart';
+import './google_ads_service.dart'; // ✅ Google Ads entegrasyonu
 
 class InAppPurchaseService {
   final InAppPurchase _inAppPurchase = InAppPurchase.instance;
   late StreamSubscription<List<PurchaseDetails>> _subscription;
+  final GoogleAdsService _googleAds = GoogleAdsService(); // ✅ Google Ads servisi
   
   // Product ID'leri - Google Play Console'da tanımlanacak
   static const String credit5 = 'credits_5';
@@ -160,6 +162,9 @@ class InAppPurchaseService {
           // Satın alma başarılı
           _purchasePending = false;
           onPurchaseSuccess?.call(purchaseDetails);
+          
+          // ✅ Google Ads conversion tracking
+          _trackPurchaseToGoogleAds(purchaseDetails);
         }
         
         // Satın almayı tamamla
@@ -214,6 +219,48 @@ class InAppPurchaseService {
   // Premium ürün mü?
   bool isPremiumProduct(String productId) {
     return productId == premiumMonthly || productId == premium3Months || productId == premiumYearly;
+  }
+  
+  // ✅ Google Ads'e satın alma bilgisi gönder
+  Future<void> _trackPurchaseToGoogleAds(PurchaseDetails purchase) async {
+    try {
+      final productId = purchase.productID;
+      
+      // Ürün fiyatını hesapla (örnek değerler - gerçek fiyatlar için product details kullanılabilir)
+      double value = 0.0;
+      String currency = 'TRY'; // Türk Lirası varsayılan
+      
+      // Kredi paketleri fiyatları
+      if (productId == credit5) {
+        value = 4.99;
+      } else if (productId == credit10) {
+        value = 9.99;
+      } else if (productId == credit25) {
+        value = 19.99;
+      } else if (productId == credit50) {
+        value = 39.99;
+      }
+      // Premium paketler fiyatları
+      else if (productId == premiumMonthly) {
+        value = 29.99;
+      } else if (productId == premium3Months) {
+        value = 79.99;
+      } else if (productId == premiumYearly) {
+        value = 199.99;
+      }
+      
+      // Google Ads'e conversion bildir
+      await _googleAds.trackPurchase(
+        productId: productId,
+        value: value,
+        currency: currency,
+      );
+      
+      debugPrint('✅ Google Ads conversion tracked: $productId ($value $currency)');
+    } catch (e) {
+      debugPrint('❌ Google Ads tracking hatası: $e');
+      // Hata olsa bile satın alma işlemine devam et
+    }
   }
   
   // Temizle

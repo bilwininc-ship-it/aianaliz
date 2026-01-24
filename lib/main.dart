@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'firebase_options.dart';
 import 'services/remote_config_service.dart';
 import 'services/app_startup_service.dart';
 import 'core/routes/app_router.dart';
 import 'providers/auth_provider.dart';
 import 'providers/bulletin_provider.dart';
+import 'providers/language_provider.dart';
+import 'l10n/app_localizations.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -58,19 +61,35 @@ class MyApp extends StatelessWidget {
       providers: [
         ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider(create: (_) => BulletinProvider()),
+        ChangeNotifierProvider(create: (_) => LanguageProvider()..loadLanguage()),
       ],
-      child: MaterialApp.router(
-        title: 'AI Spor Pro',
-        debugShowCheckedModeBanner: false,
-        theme: ThemeData(
-          primarySwatch: Colors.blue,
-          useMaterial3: true,
-          appBarTheme: const AppBarTheme(
-            centerTitle: true,
-            elevation: 0,
-          ),
-        ),
-        routerConfig: router,
+      child: Consumer<LanguageProvider>(
+        builder: (context, languageProvider, child) {
+          return MaterialApp.router(
+            title: 'AI Spor Pro',
+            debugShowCheckedModeBanner: false,
+            
+            // Localization yapılandırması
+            locale: languageProvider.locale,
+            supportedLocales: AppLocalizations.supportedLocales,
+            localizationsDelegates: const [
+              AppLocalizations.delegate,
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+            ],
+            
+            theme: ThemeData(
+              primarySwatch: Colors.blue,
+              useMaterial3: true,
+              appBarTheme: const AppBarTheme(
+                centerTitle: true,
+                elevation: 0,
+              ),
+            ),
+            routerConfig: router,
+          );
+        },
       ),
     );
   }

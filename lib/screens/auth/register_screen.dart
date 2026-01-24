@@ -4,6 +4,8 @@ import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/language_provider.dart';
+import '../../l10n/app_localizations.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -35,6 +37,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 
   Future<void> _register() async {
+    final loc = AppLocalizations.of(context)!;
+    
     if (!_formKey.currentState!.validate()) {
       return;
     }
@@ -42,8 +46,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
     // Kullanıcı sözleşmesi ve gizlilik politikası kontrolü
     if (!_acceptedTerms || !_acceptedPrivacy) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Lütfen kullanıcı sözleşmesini ve gizlilik politikasını kabul edin'),
+        SnackBar(
+          content: Text(loc.t('register_error')),
           backgroundColor: Colors.orange,
         ),
       );
@@ -62,8 +66,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
       if (mounted && success) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Kayıt başarılı! Hoşgeldiniz 🎉'),
+          SnackBar(
+            content: Text(loc.t('register_success')),
             backgroundColor: Colors.green,
           ),
         );
@@ -73,7 +77,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Kayıt hatası: ${e.toString()}'),
+            content: Text('${loc.t('register_error')}: ${e.toString()}'),
             backgroundColor: Colors.red,
           ),
         );
@@ -101,12 +105,68 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context)!;
+    final languageProvider = context.watch<LanguageProvider>();
+    
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () => context.go('/login'),
         ),
+        actions: [
+          // Dil Seçici
+          PopupMenuButton<String>(
+            icon: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  languageProvider.isTurkish ? '🇹🇷' : '🇬🇧',
+                  style: const TextStyle(fontSize: 20),
+                ),
+              ],
+            ),
+            onSelected: (String languageCode) {
+              if (languageCode == 'tr') {
+                languageProvider.changeLanguage('tr', 'TR');
+              } else {
+                languageProvider.changeLanguage('en', 'US');
+              }
+            },
+            itemBuilder: (BuildContext context) => [
+              PopupMenuItem<String>(
+                value: 'tr',
+                child: Row(
+                  children: [
+                    const Text('🇹🇷', style: TextStyle(fontSize: 20)),
+                    const SizedBox(width: 12),
+                    Text(loc.t('turkish')),
+                    if (languageProvider.isTurkish)
+                      const Padding(
+                        padding: EdgeInsets.only(left: 12),
+                        child: Icon(Icons.check, size: 18, color: Colors.green),
+                      ),
+                  ],
+                ),
+              ),
+              PopupMenuItem<String>(
+                value: 'en',
+                child: Row(
+                  children: [
+                    const Text('🇬🇧', style: TextStyle(fontSize: 20)),
+                    const SizedBox(width: 12),
+                    Text(loc.t('english')),
+                    if (languageProvider.isEnglish)
+                      const Padding(
+                        padding: EdgeInsets.only(left: 12),
+                        child: Icon(Icons.check, size: 18, color: Colors.green),
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
       body: SafeArea(
         child: Center(
@@ -128,7 +188,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   
                   // Başlık
                   Text(
-                    'Hesap Oluştur',
+                    loc.t('register'),
                     style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),
@@ -136,7 +196,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'AI Spor Pro ile başlayın',
+                    'AI Spor Pro',
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
                       color: Colors.grey[600],
                     ),
@@ -144,13 +204,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   ),
                   const SizedBox(height: 32),
                   
-                  // Ad Soyad
+                  // Ad Soyad (Türkçe'de göster)
                   TextFormField(
                     controller: _nameController,
                     keyboardType: TextInputType.name,
                     decoration: InputDecoration(
-                      labelText: 'Ad Soyad',
-                      hintText: 'Ahmet Yılmaz',
+                      labelText: languageProvider.isTurkish ? 'Ad Soyad' : 'Full Name',
+                      hintText: languageProvider.isTurkish ? 'Ahmet Yılmaz' : 'John Doe',
                       prefixIcon: const Icon(Icons.person_outline),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
@@ -158,10 +218,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     ),
                     validator: (value) {
                       if (value == null || value.isEmpty) {
-                        return 'Ad soyad gerekli';
+                        return languageProvider.isTurkish ? 'Ad soyad gerekli' : 'Full name is required';
                       }
                       if (value.length < 3) {
-                        return 'Ad soyad en az 3 karakter olmalı';
+                        return languageProvider.isTurkish ? 'Ad soyad en az 3 karakter olmalı' : 'Name must be at least 3 characters';
                       }
                       return null;
                     },
@@ -173,7 +233,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     controller: _emailController,
                     keyboardType: TextInputType.emailAddress,
                     decoration: InputDecoration(
-                      labelText: 'E-posta',
+                      labelText: loc.t('email'),
                       hintText: 'ornek@email.com',
                       prefixIcon: const Icon(Icons.email_outlined),
                       border: OutlineInputBorder(
@@ -182,10 +242,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     ),
                     validator: (value) {
                       if (value == null || value.isEmpty) {
-                        return 'E-posta adresi gerekli';
+                        return loc.t('email_required');
                       }
                       if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
-                        return 'Geçerli bir e-posta adresi girin';
+                        return loc.t('email_required');
                       }
                       return null;
                     },
@@ -197,7 +257,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     controller: _passwordController,
                     obscureText: _obscurePassword,
                     decoration: InputDecoration(
-                      labelText: 'Şifre',
+                      labelText: loc.t('password'),
                       prefixIcon: const Icon(Icons.lock_outline),
                       suffixIcon: IconButton(
                         icon: Icon(
@@ -213,10 +273,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     ),
                     validator: (value) {
                       if (value == null || value.isEmpty) {
-                        return 'Şifre gerekli';
+                        return loc.t('password_required');
                       }
                       if (value.length < 6) {
-                        return 'Şifre en az 6 karakter olmalı';
+                        return loc.t('password_required');
                       }
                       return null;
                     },
@@ -228,7 +288,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     controller: _confirmPasswordController,
                     obscureText: _obscureConfirmPassword,
                     decoration: InputDecoration(
-                      labelText: 'Şifre Tekrar',
+                      labelText: loc.t('password_again'),
                       prefixIcon: const Icon(Icons.lock_outline),
                       suffixIcon: IconButton(
                         icon: Icon(
@@ -244,10 +304,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     ),
                     validator: (value) {
                       if (value == null || value.isEmpty) {
-                        return 'Şifre tekrarı gerekli';
+                        return loc.t('password_required');
                       }
                       if (value != _passwordController.text) {
-                        return 'Şifreler eşleşmiyor';
+                        return loc.t('passwords_dont_match');
                       }
                       return null;
                     },
@@ -270,7 +330,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         ),
                         children: [
                           TextSpan(
-                            text: 'Kullanıcı Sözleşmesi',
+                            text: languageProvider.isTurkish ? 'Kullanıcı Sözleşmesi' : 'Terms of Service',
                             style: TextStyle(
                               color: Theme.of(context).primaryColor,
                               decoration: TextDecoration.underline,
@@ -280,7 +340,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                 _launchURL('https://aikupon.com/terms');
                               },
                           ),
-                          const TextSpan(text: "'ni okudum ve kabul ediyorum"),
+                          TextSpan(
+                            text: languageProvider.isTurkish 
+                              ? "'ni okudum ve kabul ediyorum" 
+                              : " - I have read and accept",
+                          ),
                         ],
                       ),
                     ),
@@ -302,7 +366,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         ),
                         children: [
                           TextSpan(
-                            text: 'Gizlilik Politikası',
+                            text: languageProvider.isTurkish ? 'Gizlilik Politikası' : 'Privacy Policy',
                             style: TextStyle(
                               color: Theme.of(context).primaryColor,
                               decoration: TextDecoration.underline,
@@ -312,7 +376,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                 _launchURL('https://aikupon.com/privacy');
                               },
                           ),
-                          const TextSpan(text: "'nı okudum ve kabul ediyorum"),
+                          TextSpan(
+                            text: languageProvider.isTurkish 
+                              ? "'nı okudum ve kabul ediyorum" 
+                              : " - I have read and accept",
+                          ),
                         ],
                       ),
                     ),
@@ -337,9 +405,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               color: Colors.white,
                             ),
                           )
-                        : const Text(
-                            'Kayıt Ol',
-                            style: TextStyle(fontSize: 16),
+                        : Text(
+                            loc.t('register'),
+                            style: const TextStyle(fontSize: 16),
                           ),
                   ),
                   const SizedBox(height: 24),
@@ -349,12 +417,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Text(
-                        'Zaten hesabınız var mı? ',
+                        '${loc.t('already_have_account')} ',
                         style: TextStyle(color: Colors.grey[600]),
                       ),
                       TextButton(
                         onPressed: () => context.go('/login'),
-                        child: const Text('Giriş Yap'),
+                        child: Text(loc.t('login_now')),
                       ),
                     ],
                   ),

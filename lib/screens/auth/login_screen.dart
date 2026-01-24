@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/language_provider.dart';
+import '../../l10n/app_localizations.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -39,13 +41,21 @@ class _LoginScreenState extends State<LoginScreen> {
       );
 
       if (mounted && authProvider.user != null) {
+        final loc = AppLocalizations.of(context)!;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(loc.t('login_success')),
+            backgroundColor: Colors.green,
+          ),
+        );
         context.go('/home');
       }
     } catch (e) {
       if (mounted) {
+        final loc = AppLocalizations.of(context)!;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Giriş hatası: ${e.toString()}'),
+            content: Text(loc.t('login_error')),
             backgroundColor: Colors.red,
           ),
         );
@@ -58,12 +68,13 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _resetPassword() async {
+    final loc = AppLocalizations.of(context)!;
     final email = _emailController.text.trim();
     
     if (email.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Lütfen e-posta adresinizi girin'),
+        SnackBar(
+          content: Text(loc.t('email_required')),
           backgroundColor: Colors.orange,
         ),
       );
@@ -74,8 +85,8 @@ class _LoginScreenState extends State<LoginScreen> {
     final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
     if (!emailRegex.hasMatch(email)) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Geçerli bir e-posta adresi girin'),
+        SnackBar(
+          content: Text(loc.t('email_required')),
           backgroundColor: Colors.orange,
         ),
       );
@@ -91,7 +102,7 @@ class _LoginScreenState extends State<LoginScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Şifre sıfırlama bağlantısı $email adresine gönderildi'),
+            content: Text('${loc.t('success')} - $email'),
             backgroundColor: Colors.green,
             duration: const Duration(seconds: 4),
           ),
@@ -101,7 +112,7 @@ class _LoginScreenState extends State<LoginScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Hata: ${e.toString()}'),
+            content: Text('${loc.t('error')}: ${e.toString()}'),
             backgroundColor: Colors.red,
           ),
         );
@@ -115,6 +126,9 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context)!;
+    final languageProvider = context.watch<LanguageProvider>();
+    
     return Scaffold(
       body: SafeArea(
         child: Center(
@@ -126,6 +140,64 @@ class _LoginScreenState extends State<LoginScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  // Dil Seçici Butonu (Sağ Üstte)
+                  Align(
+                    alignment: Alignment.topRight,
+                    child: PopupMenuButton<String>(
+                      icon: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.language, color: Theme.of(context).primaryColor),
+                          const SizedBox(width: 4),
+                          Text(
+                            languageProvider.isTurkish ? '🇹🇷' : '🇬🇧',
+                            style: const TextStyle(fontSize: 18),
+                          ),
+                        ],
+                      ),
+                      onSelected: (String languageCode) {
+                        if (languageCode == 'tr') {
+                          languageProvider.changeLanguage('tr', 'TR');
+                        } else {
+                          languageProvider.changeLanguage('en', 'US');
+                        }
+                      },
+                      itemBuilder: (BuildContext context) => [
+                        PopupMenuItem<String>(
+                          value: 'tr',
+                          child: Row(
+                            children: [
+                              const Text('🇹🇷', style: TextStyle(fontSize: 20)),
+                              const SizedBox(width: 12),
+                              Text(loc.t('turkish')),
+                              if (languageProvider.isTurkish)
+                                const Padding(
+                                  padding: EdgeInsets.only(left: 12),
+                                  child: Icon(Icons.check, size: 18, color: Colors.green),
+                                ),
+                            ],
+                          ),
+                        ),
+                        PopupMenuItem<String>(
+                          value: 'en',
+                          child: Row(
+                            children: [
+                              const Text('🇬🇧', style: TextStyle(fontSize: 20)),
+                              const SizedBox(width: 12),
+                              Text(loc.t('english')),
+                              if (languageProvider.isEnglish)
+                                const Padding(
+                                  padding: EdgeInsets.only(left: 12),
+                                  child: Icon(Icons.check, size: 18, color: Colors.green),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  
                   // Logo
                   Icon(
                     Icons.sports_soccer,
@@ -144,7 +216,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Giriş Yap',
+                    loc.t('login'),
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
                       color: Colors.grey[600],
                     ),
@@ -157,7 +229,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     controller: _emailController,
                     keyboardType: TextInputType.emailAddress,
                     decoration: InputDecoration(
-                      labelText: 'E-posta',
+                      labelText: loc.t('email'),
                       hintText: 'ornek@email.com',
                       prefixIcon: const Icon(Icons.email_outlined),
                       border: OutlineInputBorder(
@@ -166,10 +238,10 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     validator: (value) {
                       if (value == null || value.isEmpty) {
-                        return 'E-posta adresi gerekli';
+                        return loc.t('email_required');
                       }
                       if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
-                        return 'Geçerli bir e-posta adresi girin';
+                        return loc.t('email_required');
                       }
                       return null;
                     },
@@ -181,7 +253,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     controller: _passwordController,
                     obscureText: _obscurePassword,
                     decoration: InputDecoration(
-                      labelText: 'Şifre',
+                      labelText: loc.t('password'),
                       prefixIcon: const Icon(Icons.lock_outline),
                       suffixIcon: IconButton(
                         icon: Icon(
@@ -197,10 +269,10 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     validator: (value) {
                       if (value == null || value.isEmpty) {
-                        return 'Şifre gerekli';
+                        return loc.t('password_required');
                       }
                       if (value.length < 6) {
-                        return 'Şifre en az 6 karakter olmalı';
+                        return loc.t('password_required');
                       }
                       return null;
                     },
@@ -212,7 +284,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     alignment: Alignment.centerRight,
                     child: TextButton(
                       onPressed: _isLoading ? null : _resetPassword,
-                      child: const Text('Şifremi Unuttum'),
+                      child: Text(loc.t('forgot_password')),
                     ),
                   ),
                   const SizedBox(height: 24),
@@ -235,9 +307,9 @@ class _LoginScreenState extends State<LoginScreen> {
                               color: Colors.white,
                             ),
                           )
-                        : const Text(
-                            'Giriş Yap',
-                            style: TextStyle(fontSize: 16),
+                        : Text(
+                            loc.t('login'),
+                            style: const TextStyle(fontSize: 16),
                           ),
                   ),
                   const SizedBox(height: 24),
@@ -247,12 +319,12 @@ class _LoginScreenState extends State<LoginScreen> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Text(
-                        'Hesabınız yok mu? ',
+                        '${loc.t('dont_have_account')} ',
                         style: TextStyle(color: Colors.grey[600]),
                       ),
                       TextButton(
                         onPressed: () => context.go('/register'),
-                        child: const Text('Kayıt Ol'),
+                        child: Text(loc.t('register_now')),
                       ),
                     ],
                   ),

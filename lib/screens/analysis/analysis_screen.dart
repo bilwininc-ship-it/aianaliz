@@ -1,10 +1,12 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:firebase_database/firebase_database.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:go_router/go_router.dart';
 import '../../services/gemini_service.dart';
 import '../../services/football_api_service.dart';
 import '../../services/match_pool_service.dart';
+import '../../services/rating_service.dart';
 
 class AnalysisScreen extends StatefulWidget {
   final String bulletinId;
@@ -24,6 +26,7 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
   final GeminiService _geminiService = GeminiService();
   final FootballApiService _footballApi = FootballApiService();
   final MatchPoolService _matchPool = MatchPoolService();
+  final RatingService _ratingService = RatingService();
 
   bool _isAnalyzing = true;
   String _statusMessage = 'Görsel analiz ediliyor...';
@@ -822,9 +825,75 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
         backgroundColor: Colors.blue[700],
         foregroundColor: Colors.white,
         elevation: 0,
+        actions: [
+          // ⭐ Yıldız butonu
+          IconButton(
+            icon: const Icon(Icons.star_outline),
+            tooltip: 'Uygulamayı Değerlendir',
+            onPressed: _handleRatingRequest,
+          ),
+        ],
       ),
       body: _isAnalyzing ? _buildLoadingView() : _buildResultsView(),
     );
+  }
+  
+  // ⭐ Rating isteği handler
+  Future<void> _handleRatingRequest() async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      
+      if (user == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('❌ Lütfen önce giriş yapın'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        return;
+      }
+      
+      // Daha önce değerlendirme yapılmış mı kontrol et
+      final hasRated = await _ratingService.hasRatedBefore();
+      
+      if (hasRated) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('✅ Daha önce değerlendirme yaptınız, teşekkürler! 🌟'),
+              backgroundColor: Colors.blue,
+            ),
+          );
+        }
+        return;
+      }
+      
+      // Rating dialog'unu göster ve bonus ver
+      final success = await _ratingService.requestRating(user.uid);
+      
+      if (success && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('🎉 Teşekkürler! +2 bonus kredi hesabınıza eklendi! ⭐'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 3),
+          ),
+        );
+      }
+      
+    } catch (e) {
+      print('❌ Rating hatası: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('⚠️ Bir hata oluştu, lütfen daha sonra tekrar deneyin'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
+    }
   }
 
   Widget _buildLoadingView() {

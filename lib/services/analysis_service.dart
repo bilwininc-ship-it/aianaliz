@@ -51,11 +51,22 @@ class AnalysisService {
       await bulletinRef.update({'status': 'analyzing'});
       debugPrint('✅ Bülten durumu güncellendi: analyzing');
 
-      // 4️⃣ GEMİNİ İLE MAÇLARI ÇIKART
-      final geminiResponse = await _gemini.analyzeImage(base64Image);
-      final matchesData = _parseGeminiResponse(geminiResponse);
+      // 4️⃣ GEMİNİ İLE MAÇLARI ÇIKART (RETRY MEKANİZMASI)
+      final geminiResponse = await _retryOperation(
+        () => _gemini.analyzeImage(base64Image),
+        operationName: 'Gemini Görüntü Analizi',
+      );
+      var matchesData = _parseGeminiResponse(geminiResponse);
       
-      debugPrint('📋 Gemini\'den gelen maçlar:');
+      // 🎯 MAÇ LİMİTİ KONTROLÜ (MAX 4 MAÇ)
+      String? warningMessage;
+      if (matchesData.length > 4) {
+        debugPrint('⚠️ ${matchesData.length} maç bulundu, en yüksek güven oranlı ilk 4 maç analiz ediliyor');
+        warningMessage = '${matchesData.length} maç tespit edildi. En güvenilir 4 maç analiz edilecek.';
+        matchesData = matchesData.take(4).toList();
+      }
+      
+      debugPrint('📋 Gemini\'den gelen maçlar (${matchesData.length} adet):');
       for (var match in matchesData) {
         debugPrint('  - ${match['homeTeam']} vs ${match['awayTeam']}');
       }
@@ -89,13 +100,19 @@ class AnalysisService {
             source = 'firebase_pool';
             league = poolMatch.league;
           } else {
-            // FOOTBALL API'DEN AL
+            // FOOTBALL API'DEN AL (RETRY ile)
             debugPrint('! Maç $matchIndex: Havuzda yok, Football API kullanılıyor...');
             
-            final homeTeamData = await _footballApi.searchAndGetTeamData(matchData['homeTeam']);
+            final homeTeamData = await _retryOperation(
+              () => _footballApi.searchAndGetTeamData(matchData['homeTeam']),
+              operationName: 'Football API (${matchData['homeTeam']})',
+            );
             await Future.delayed(const Duration(milliseconds: 800));
             
-            final awayTeamData = await _footballApi.searchAndGetTeamData(matchData['awayTeam']);
+            final awayTeamData = await _retryOperation(
+              () => _footballApi.searchAndGetTeamData(matchData['awayTeam']),
+              operationName: 'Football API (${matchData['awayTeam']})',
+            );
             await Future.delayed(const Duration(milliseconds: 800));
 
             homeStats = homeTeamData?['stats'];
@@ -103,16 +120,17 @@ class AnalysisService {
             source = 'football_api';
             league = homeTeamData?['league'] ?? 'Bilinmiyor';
 
-            // H2H çek (opsiyonel)
+            // H2H çek (opsiyonel, timeout korumalı)
             if (homeTeamData != null && awayTeamData != null) {
               try {
-                final h2hResult = await _footballApi.getH2H(
-                  homeTeamData['id'],
-                  awayTeamData['id'],
+                final h2hResult = await _retryOperation(
+                  () => _footballApi.getH2H(homeTeamData['id'], awayTeamData['id']),
+                  operationName: 'H2H Analizi',
+                  maxAttempts: 1, // H2H için tek deneme yeterli
                 );
                 h2h = h2hResult.cast<Map<String, dynamic>>(); // Cast ekle
               } catch (e) {
-                debugPrint('! H2H alınamadı: $e');
+                debugPrint('! H2H alınamadı (sorun değil): $e');
               }
             }
           }
@@ -140,12 +158,19 @@ class AnalysisService {
         matchIndex++;
       }
 
-      // 6️⃣ SONUÇLARI KAYDET
-      await bulletinRef.update({
+      // 6️⃣ SONUÇLARI KAYDET (Uyarı mesajı ile birlikte)
+      final updateData = {
         'status': 'completed',
         'matches': analyzedMatches,
         'analyzedAt': DateTime.now().millisecondsSinceEpoch,
-      });
+      };
+      
+      // Uyarı mesajı varsa ekle
+      if (warningMessage != null) {
+        updateData['warning'] = warningMessage;
+      }
+      
+      await bulletinRef.update(updateData);
 
       debugPrint('✅ ${analyzedMatches.length} maç analizi Realtime Database\'e kaydedildi');
       debugPrint('✅ Bülten durumu güncellendi: completed');
@@ -231,9 +256,9 @@ class AnalysisService {
 
   /// İstatistikleri parse et ve hesapla
   Map<String, double> _parseStats(Map<String, dynamic>? homeStats, Map<String, dynamic>? awayStats) {
-    // Varsayılan değerler
+    // Varsayılan değerler (Yetersiz veri durumu)
     if (homeStats == null || awayStats == null) {
-      debugPrint('  Varsayılan değerler kullanılıyor (stats yok)');
+      debugPrint('ℹ️ Detaylı istatistik bulunamadı, genel analiz yapılıyor (Dengeli güçler varsayımı)');
       return {
         'homeGamesPlayed': 10.0,
         'awayGamesPlayed': 10.0,
@@ -335,7 +360,7 @@ class AnalysisService {
     } else {
       prediction = '1';
       confidence = 52;
-      reasoning = 'Dengeli güçler, ev sahibi avantajı minimal';
+      reasoning = 'Dengeli güçler - Ev sahibi avantajı minimal, düşük güven seviyesi';
     }
 
     return {'prediction': prediction, 'confidence': confidence, 'reasoning': reasoning};
@@ -506,5 +531,48 @@ class AnalysisService {
       'confidence': confidence,
       'reasoning': 'Kaybetmeme oranı: Ev %${homeNotLose.toInt()}, Dep %${awayNotLose.toInt()}'
     };
+  }
+  /// 🔄 RETRY MEKANİZMASI - API çağrılarını güvenli hale getirir
+  Future<T> _retryOperation<T>(
+    Future<T> Function() operation, {
+    required String operationName,
+    int maxAttempts = 2,
+    Duration delayBetweenAttempts = const Duration(seconds: 2),
+  }) async {
+    int attempt = 0;
+    
+    while (attempt < maxAttempts) {
+      attempt++;
+      
+      try {
+        debugPrint('🔄 $operationName - Deneme $attempt/$maxAttempts');
+        
+        // Timeout koruması (60 saniye)
+        final result = await operation().timeout(
+          const Duration(seconds: 60),
+          onTimeout: () {
+            throw Exception('İşlem zaman aşımına uğradı (60 saniye)');
+          },
+        );
+        
+        debugPrint('✅ $operationName - Başarılı (Deneme $attempt)');
+        return result;
+        
+      } catch (e) {
+        debugPrint('⚠️ $operationName - Deneme $attempt/$maxAttempts başarısız: $e');
+        
+        // Son denemeyse hatayı fırlat
+        if (attempt >= maxAttempts) {
+          debugPrint('❌ $operationName - Tüm denemeler başarısız oldu');
+          rethrow;
+        }
+        
+        // Denemeler arası bekleme (API'yi darlamayalım)
+        debugPrint('⏳ ${delayBetweenAttempts.inSeconds} saniye bekleniyor...');
+        await Future.delayed(delayBetweenAttempts);
+      }
+    }
+    
+    throw Exception('$operationName - Beklenmeyen hata');
   }
 }

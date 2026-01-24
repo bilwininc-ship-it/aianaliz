@@ -93,6 +93,11 @@ Sadece JSON döndür, başka açıklama yazma.''';
         url,
         headers: {'Content-Type': 'application/json'},
         body: body,
+      ).timeout(
+        const Duration(seconds: 60),
+        onTimeout: () {
+          throw Exception('Gemini API zaman aşımına uğradı (60 saniye)');
+        },
       );
 
       if (response.statusCode == 200) {
@@ -136,6 +141,11 @@ Sadece JSON döndür, başka açıklama yazma.''';
         url,
         headers: {'Content-Type': 'application/json'},
         body: body,
+      ).timeout(
+        const Duration(seconds: 60),
+        onTimeout: () {
+          throw Exception('Gemini API zaman aşımına uğradı (60 saniye)');
+        },
       );
 
       if (response.statusCode == 200) {
@@ -183,6 +193,11 @@ Sadece JSON döndür, başka açıklama yazma.''';
         url,
         headers: {'Content-Type': 'application/json'},
         body: body,
+      ).timeout(
+        const Duration(seconds: 60),
+        onTimeout: () {
+          throw Exception('Gemini API zaman aşımına uğradı (60 saniye)');
+        },
       );
 
       if (response.statusCode == 200) {
@@ -227,6 +242,11 @@ Sadece JSON döndür, başka açıklama yazma.''';
         url,
         headers: {'Content-Type': 'application/json'},
         body: body,
+      ).timeout(
+        const Duration(seconds: 60),
+        onTimeout: () {
+          throw Exception('Gemini API zaman aşımına uğradı (60 saniye)');
+        },
       );
 
       if (response.statusCode == 200) {

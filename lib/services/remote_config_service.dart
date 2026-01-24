@@ -1,4 +1,5 @@
 import 'package:firebase_remote_config/firebase_remote_config.dart';
+import 'package:flutter/foundation.dart';
 
 class RemoteConfigService {
   static final RemoteConfigService _instance = RemoteConfigService._internal();
@@ -38,9 +39,9 @@ class RemoteConfigService {
       await _remoteConfig.fetchAndActivate();
 
       _initialized = true;
-      print('✅ Remote Config initialized');
+      debugPrint('✅ Remote Config initialized');
     } catch (e) {
-      print('❌ Remote Config initialization error: $e');
+      debugPrint('❌ Remote Config initialization error: $e');
       _initialized = true;
     }
   }
@@ -51,7 +52,7 @@ class RemoteConfigService {
       if (key.isEmpty) throw Exception('GEMINI_API_KEY is empty');
       return key;
     } catch (e) {
-      print('❌ Error getting Gemini API key: $e');
+      debugPrint('❌ Error getting Gemini API key: $e');
       throw Exception('Gemini API key not configured');
     }
   }
@@ -62,7 +63,7 @@ class RemoteConfigService {
       if (key.isEmpty) throw Exception('API_FOOTBALL_KEY is empty');
       return key;
     } catch (e) {
-      print('❌ Error getting Football API key: $e');
+      debugPrint('❌ Error getting Football API key: $e');
       throw Exception('Football API key not configured');
     }
   }
@@ -76,37 +77,32 @@ class RemoteConfigService {
   String get admobBannerAdUnit => _remoteConfig.getString('ADMOB_BANNER_AD_UNIT');
   String get admobInterstitialAdUnit => _remoteConfig.getString('ADMOB_INTERSTITIAL_AD_UNIT');
   String get admobRewardedAdUnit => _remoteConfig.getString('ADMOB_REWARDED_AD_UNIT');
-  // ✅ Google Ads / AdMob getters
-  String get admobAppId => _remoteConfig.getString('ADMOB_APP_ID');
-  String get admobBannerAdUnit => _remoteConfig.getString('ADMOB_BANNER_AD_UNIT');
-  String get admobInterstitialAdUnit => _remoteConfig.getString('ADMOB_INTERSTITIAL_AD_UNIT');
-  String get admobRewardedAdUnit => _remoteConfig.getString('ADMOB_REWARDED_AD_UNIT');
 
   Future<void> refresh() async {
     try {
       await _remoteConfig.fetchAndActivate();
-      print('✅ Remote Config refreshed');
+      debugPrint('✅ Remote Config refreshed');
     } catch (e) {
-      print('❌ Remote Config refresh error: $e');
+      debugPrint('❌ Remote Config refresh error: $e');
     }
   }
 
   void printAllConfigs() {
-    print('=== Remote Config Values ===');
+    debugPrint('=== Remote Config Values ===');
     try {
-      print('GEMINI_API_KEY: ${geminiApiKey.substring(0, 10)}...');
-      print('API_FOOTBALL_KEY: ${footballApiKey.substring(0, 10)}...');
+      debugPrint('GEMINI_API_KEY: ${geminiApiKey.substring(0, 10)}...');
+      debugPrint('API_FOOTBALL_KEY: ${footballApiKey.substring(0, 10)}...');
     } catch (e) {
-      print('API keys not configured yet');
+      debugPrint('API keys not configured yet');
     }
-    print('min_app_version: $minAppVersion');
-    print('force_update: $forceUpdate');
-    print('maintenance_mode: $maintenanceMode');
-    print('--- Google Ads / AdMob ---');
-    print('ADMOB_APP_ID: ${admobAppId.substring(0, 20)}...');
-    print('ADMOB_BANNER_AD_UNIT: ${admobBannerAdUnit.isEmpty ? "Not configured" : admobBannerAdUnit}');
-    print('ADMOB_INTERSTITIAL_AD_UNIT: ${admobInterstitialAdUnit.isEmpty ? "Not configured" : admobInterstitialAdUnit}');
-    print('ADMOB_REWARDED_AD_UNIT: ${admobRewardedAdUnit.isEmpty ? "Not configured" : admobRewardedAdUnit}');
-    print('============================');
+    debugPrint('min_app_version: $minAppVersion');
+    debugPrint('force_update: $forceUpdate');
+    debugPrint('maintenance_mode: $maintenanceMode');
+    debugPrint('--- Google Ads / AdMob ---');
+    debugPrint('ADMOB_APP_ID: ${admobAppId.substring(0, 20)}...');
+    debugPrint('ADMOB_BANNER_AD_UNIT: ${admobBannerAdUnit.isEmpty ? "Not configured" : admobBannerAdUnit}');
+    debugPrint('ADMOB_INTERSTITIAL_AD_UNIT: ${admobInterstitialAdUnit.isEmpty ? "Not configured" : admobInterstitialAdUnit}');
+    debugPrint('ADMOB_REWARDED_AD_UNIT: ${admobRewardedAdUnit.isEmpty ? "Not configured" : admobRewardedAdUnit}');
+    debugPrint('============================');
   }
 }

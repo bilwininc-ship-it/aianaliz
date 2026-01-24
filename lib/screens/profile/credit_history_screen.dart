@@ -142,7 +142,7 @@ class CreditHistoryScreen extends StatelessWidget {
             final transactionData = Map<String, dynamic>.from(value as Map);
             transactions.add(CreditTransaction.fromJson(key, transactionData));
           } catch (e) {
-            print('❌ Transaction parse hatası: $e');
+            debugPrint('❌ Transaction parse hatası: $e');
           }
         });
       }
@@ -283,6 +283,8 @@ class CreditHistoryScreen extends StatelessWidget {
         return Icons.celebration;
       case TransactionType.premium:
         return Icons.workspace_premium;
+      case TransactionType.rewardedAd:
+        return Icons.play_circle_filled;
     }
   }
 
@@ -300,6 +302,8 @@ class CreditHistoryScreen extends StatelessWidget {
         return 'Hoşgeldin Bonusu';
       case TransactionType.premium:
         return 'Premium Üyelik';
+      case TransactionType.rewardedAd:
+        return 'Reklam İzleme Bonusu';
     }
   }
 

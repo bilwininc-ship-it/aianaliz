@@ -7,6 +7,7 @@ enum TransactionType {
   refund, // İade
   welcome, // Hoşgeldin bonusu
   premium,
+  rewardedAd, // ✅ YENİ: Ödüllü reklam
 }
 
 class CreditTransaction {

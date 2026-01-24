@@ -342,6 +342,13 @@ class AuthProvider extends ChangeNotifier {
     }
   }
   
+  // ✅ YENİ: Kullanıcı verilerini yenile (Rewarded Ad için)
+  Future<void> refreshUser() async {
+    if (_user != null) {
+      await _loadUserModel(_user!.uid);
+    }
+  }
+  
   // Token geçerliliğini kontrol et ve gerekirse yenile
   Future<String?> getValidToken() async {
     try {

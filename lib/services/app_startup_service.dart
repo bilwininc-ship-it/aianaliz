@@ -1,156 +1,322 @@
+import 'package:flutter/material.dart';
 import 'package:firebase_database/firebase_database.dart';
-import './match_pool_service.dart';
-import './google_ads_service.dart'; // ✅ Google Ads entegrasyonu
-import './notification_service.dart'; // ✅ Push Notification sistemi
+import 'package:provider/provider.dart';
+import '../../providers/auth_provider.dart';
+import '../../models/credit_transaction_model.dart';
 
-/// Uygulama başlangıç servisi - SADECE OKUMA MODU
-/// - Match Pool durumunu kontrol eder
-/// - KULLANICILAR GÜNCELLEME YAPMAZ
-/// - Güncelleme: External Cron + Cloud Function tarafından yapılır
-/// - Firebase FREE plan ile çalışır
-class AppStartupService {
-  static final AppStartupService _instance = AppStartupService._internal();
-  factory AppStartupService() => _instance;
-  AppStartupService._internal();
+class CreditHistoryScreen extends StatelessWidget {
+  const CreditHistoryScreen({super.key});
 
-  final DatabaseReference _database = FirebaseDatabase.instance.ref();
-  final MatchPoolService _matchPool = MatchPoolService();
-  final GoogleAdsService _googleAds = GoogleAdsService(); // ✅ Google Ads servisi
-  final NotificationService _notificationService = NotificationService(); // ✅ Push Notification servisi
+  @override
+  Widget build(BuildContext context) {
+    final authProvider = context.watch<AuthProvider>();
+    final userId = authProvider.user?.uid;
 
-  bool _isInitialized = false;
-
-  /// Uygulama başlangıcında çağrılacak
-  Future<void> initialize() async {
-    if (_isInitialized) {
-      print('⚠️ App Startup zaten çalıştırıldı');
-      return;
+    if (userId == null) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Kredi Geçmişi')),
+        body: const Center(child: Text('Giriş yapılmamış')),
+      );
     }
 
-    try {
-      print('🚀 App Startup başlatılıyor...');
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Kredi Geçmişi'),
+        centerTitle: true,
+      ),
+      body: Column(
+        children: [
+          // Mevcut Kredi Kartı
+          Container(
+            margin: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  Theme.of(context).primaryColor,
+                  Theme.of(context).primaryColor.withValues(alpha: 0.7),
+                ],
+              ),
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Theme.of(context).primaryColor.withValues(alpha: 0.3),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(
+                    Icons.stars,
+                    color: Colors.white,
+                    size: 32,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Mevcut Kredi',
+                        style: TextStyle(
+                          color: Colors.white70,
+                          fontSize: 14,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        authProvider.isPremium
+                            ? 'Sınırsız (Premium)'
+                            : '${authProvider.credits} Kredi',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
 
-      // 0. Google Ads'i başlat (conversion tracking için)
-      await _googleAds.initialize();
+          // İşlem Geçmişi
+          Expanded(
+            child: StreamBuilder<List<CreditTransaction>>(
+              stream: _buildTransactionsStream(userId),
+              builder: (context, snapshot) {
+                if (snapshot.hasError) {
+                  return _buildError(context, snapshot.error.toString());
+                }
 
-      // 0.1. Push Notification servisi başlat
-      await _notificationService.initialize();
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
 
-      // 1. Pool durumunu kontrol et (SADECE OKUMA)
-      final poolStatus = await _checkPoolStatus();
+                final transactions = snapshot.data ?? [];
+
+                if (transactions.isEmpty) {
+                  return _buildEmpty(context);
+                }
+
+                return ListView.builder(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  itemCount: transactions.length,
+                  itemBuilder: (context, index) {
+                    final transaction = transactions[index];
+                    return _buildTransactionCard(context, transaction);
+                  },
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Stream<List<CreditTransaction>> _buildTransactionsStream(String userId) {
+    final ref = FirebaseDatabase.instance
+        .ref('credit_transactions')
+        .orderByChild('userId')
+        .equalTo(userId);
+    
+    return ref.onValue.map((event) {
+      final transactions = <CreditTransaction>[];
       
-      if (poolStatus['exists']) {
-        final hoursSinceUpdate = poolStatus['hoursSinceUpdate'] ?? 0;
-        final totalMatches = poolStatus['totalMatches'] ?? 0;
+      if (event.snapshot.value != null) {
+        final data = Map<String, dynamic>.from(event.snapshot.value as Map);
         
-        print('✅ Match Pool mevcut:');
-        print('   - Toplam maç: $totalMatches');
-        print('   - Son güncelleme: $hoursSinceUpdate saat önce');
-        
-        if (hoursSinceUpdate > 6) {
-          print('⚠️ Pool eskimiş (6+ saat) - Cron job güncelleme yapacak');
-        } else {
-          print('✅ Pool güncel ve kullanıma hazır');
-        }
-      } else {
-        print('⚠️ Match Pool henüz oluşturulmamış');
-        print('💡 Cron job ilk güncellemeyi yapacak');
+        data.forEach((key, value) {
+          try {
+            final transactionData = Map<String, dynamic>.from(value as Map);
+            transactions.add(CreditTransaction.fromJson(key, transactionData));
+          } catch (e) {
+            debugPrint('❌ Transaction parse hatası: $e');
+          }
+        });
       }
-
-      _isInitialized = true;
-      print('✅ App Startup tamamlandı (Read-only mode)');
-    } catch (e) {
-      print('❌ App Startup hatası: $e');
-      // Hata olsa bile uygulama açılmalı
-      _isInitialized = true;
-    }
-  }
-
-  /// Pool durumunu kontrol et (SADECE OKUMA)
-  Future<Map<String, dynamic>> _checkPoolStatus() async {
-    try {
-      final metadataSnapshot = await _database.child('poolMetadata').get();
-
-      if (!metadataSnapshot.exists) {
-        return {
-          'exists': false,
-          'message': 'Pool henüz oluşturulmamış',
-        };
-      }
-
-      final metadata = metadataSnapshot.value as Map<dynamic, dynamic>;
-      final lastUpdate = metadata['lastUpdate'] as int?;
-      final totalMatches = metadata['totalMatches'] as int? ?? 0;
-      final nextUpdate = metadata['nextUpdate'] as int?;
-
-      final now = DateTime.now().millisecondsSinceEpoch;
-      final hoursSinceUpdate = lastUpdate != null 
-          ? ((now - lastUpdate) / (1000 * 60 * 60)).floor() 
-          : 0;
-
-      return {
-        'exists': true,
-        'totalMatches': totalMatches,
-        'lastUpdate': lastUpdate,
-        'nextUpdate': nextUpdate,
-        'hoursSinceUpdate': hoursSinceUpdate,
-        'isStale': hoursSinceUpdate > 6,
-      };
-    } catch (e) {
-      print('❌ Pool status kontrol hatası: $e');
-      return {
-        'exists': false,
-        'error': e.toString(),
-      };
-    }
-  }
-
-  /// Timestamp'i okunabilir formata çevir
-  String _formatTimestamp(int timestamp) {
-    final date = DateTime.fromMillisecondsSinceEpoch(timestamp);
-    return '${date.day}/${date.month} ${date.hour}:${date.minute.toString().padLeft(2, '0')}';
-  }
-
-  /// Pool durumunu kontrol et
-  Future<Map<String, dynamic>> getPoolStatus() async {
-    try {
-      final metadataSnapshot = await _database.child('poolMetadata').get();
       
-      if (!metadataSnapshot.exists) {
-        return {
-          'exists': false,
-          'message': 'Pool henüz oluşturulmamış',
-        };
-      }
+      // Tarihe göre sırala (en yeni üstte)
+      transactions.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      
+      // İlk 100 işlemi döndür
+      return transactions.take(100).toList();
+    });
+  }
 
-      final metadata = metadataSnapshot.value as Map<dynamic, dynamic>;
-      final lastUpdate = metadata['lastUpdate'] as int?;
-      final totalMatches = metadata['totalMatches'] as int? ?? 0;
-      final leagues = metadata['leagues'] as List<dynamic>? ?? [];
-      final nextUpdate = metadata['nextUpdate'] as int?;
+  Widget _buildTransactionCard(BuildContext context, CreditTransaction transaction) {
+    final isPositive = transaction.amount > 0;
+    final color = isPositive ? Colors.green : Colors.red;
+    final icon = _getTransactionIcon(transaction.type);
+    final title = _getTransactionTitle(transaction.type);
 
-      final now = DateTime.now().millisecondsSinceEpoch;
-      final hoursSinceUpdate = lastUpdate != null 
-          ? ((now - lastUpdate) / (1000 * 60 * 60)).floor() 
-          : 0;
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: ListTile(
+        contentPadding: const EdgeInsets.all(16),
+        leading: Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Icon(icon, color: color, size: 24),
+        ),
+        title: Text(
+          title,
+          style: const TextStyle(fontWeight: FontWeight.w600),
+        ),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SizedBox(height: 4),
+            if (transaction.description != null)
+              Text(
+                transaction.description!,
+                style: TextStyle(color: Colors.grey[700], fontSize: 13),
+              ),
+            const SizedBox(height: 4),
+            Text(
+              _formatDate(transaction.createdAt),
+              style: TextStyle(color: Colors.grey[600], fontSize: 12),
+            ),
+            if (transaction.productId != null) ...[
+              const SizedBox(height: 4),
+              Text(
+                'Ürün: ${transaction.productId}',
+                style: TextStyle(color: Colors.grey[500], fontSize: 11),
+              ),
+            ],
+          ],
+        ),
+        trailing: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Text(
+              '${isPositive ? '+' : ''}${transaction.amount}',
+              style: TextStyle(
+                color: color,
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            Text(
+              'Kredi',
+              style: TextStyle(
+                color: Colors.grey[600],
+                fontSize: 12,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
-      return {
-        'exists': true,
-        'totalMatches': totalMatches,
-        'leagues': leagues.length,
-        'lastUpdate': lastUpdate,
-        'nextUpdate': nextUpdate,
-        'hoursSinceUpdate': hoursSinceUpdate,
-        'isStale': hoursSinceUpdate > 6, // 6 saatten eski ise stale
-        'lastUpdateFormatted': lastUpdate != null ? _formatTimestamp(lastUpdate) : 'Bilinmiyor',
-        'nextUpdateFormatted': nextUpdate != null ? _formatTimestamp(nextUpdate) : 'Bilinmiyor',
-      };
-    } catch (e) {
-      print('❌ Pool status hatası: $e');
-      return {
-        'exists': false,
-        'error': e.toString(),
-      };
+  Widget _buildEmpty(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.receipt_long, size: 80, color: Colors.grey[300]),
+          const SizedBox(height: 16),
+          Text(
+            'Henüz İşlem Yok',
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  color: Colors.grey[700],
+                ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Kredi işlemleriniz burada görünecek',
+            style: TextStyle(color: Colors.grey[600]),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildError(BuildContext context, String error) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.error_outline, size: 80, color: Colors.red[300]),
+            const SizedBox(height: 16),
+            Text('Bir Hata Oluştu', style: Theme.of(context).textTheme.titleLarge),
+            const SizedBox(height: 8),
+            Text(error, textAlign: TextAlign.center, style: TextStyle(color: Colors.grey[600])),
+          ],
+        ),
+      ),
+    );
+  }
+
+  IconData _getTransactionIcon(TransactionType type) {
+    switch (type) {
+      case TransactionType.purchase:
+        return Icons.shopping_cart;
+      case TransactionType.usage:
+        return Icons.trending_down;
+      case TransactionType.refund:
+        return Icons.replay;
+      case TransactionType.bonus:
+        return Icons.card_giftcard;
+      case TransactionType.welcome:
+        return Icons.celebration;
+      case TransactionType.premium:
+        return Icons.workspace_premium;
+      case TransactionType.rewardedAd:
+        return Icons.play_circle_filled;
+    }
+  }
+
+  String _getTransactionTitle(TransactionType type) {
+    switch (type) {
+      case TransactionType.purchase:
+        return 'Kredi Satın Alma';
+      case TransactionType.usage:
+        return 'Analiz Kullanımı';
+      case TransactionType.refund:
+        return 'İade';
+      case TransactionType.bonus:
+        return 'Bonus Kredi';
+      case TransactionType.welcome:
+        return 'Hoşgeldin Bonusu';
+      case TransactionType.premium:
+        return 'Premium Üyelik';
+      case TransactionType.rewardedAd:
+        return 'Ödüllü Reklam';
+    }
+  }
+
+  String _formatDate(DateTime date) {
+    final now = DateTime.now();
+    final difference = now.difference(date);
+
+    if (difference.inDays == 0) {
+      return 'Bugün ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
+    } else if (difference.inDays == 1) {
+      return 'Dün ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
+    } else {
+      return '${date.day}.${date.month}.${date.year} ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
     }
   }
 }

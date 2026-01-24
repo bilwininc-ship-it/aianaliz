@@ -63,7 +63,7 @@ class _RatingRewardDialogState extends State<RatingRewardDialog>
           await userService.addCredits(
             userId: userId,
             amount: 1,
-            type: TransactionType.reward,
+            type: TransactionType.bonus,
             description: 'Uygulama puanlandı - 1 kredi ödülü',
           );
           
@@ -97,7 +97,7 @@ class _RatingRewardDialogState extends State<RatingRewardDialog>
           await userService.addCredits(
             userId: userId,
             amount: 1,
-            type: TransactionType.reward,
+            type: TransactionType.bonus,
             description: 'Uygulama puanlandı - 1 kredi ödülü',
           );
           
@@ -117,7 +117,7 @@ class _RatingRewardDialogState extends State<RatingRewardDialog>
         }
       }
     } catch (e) {
-      print('❌ Rating error: $e');
+      debugPrint('❌ Rating error: $e');
       if (context.mounted) {
         final localizations = AppLocalizations.of(context)!;
         ScaffoldMessenger.of(context).showSnackBar(
@@ -171,7 +171,7 @@ class _RatingRewardDialogState extends State<RatingRewardDialog>
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: const Color(0xFFFFD700).withOpacity(0.5),
+                      color: const Color(0xFFFFD700).withValues(alpha: 0.5),
                       blurRadius: 20,
                       offset: const Offset(0, 5),
                     ),
@@ -217,7 +217,7 @@ class _RatingRewardDialogState extends State<RatingRewardDialog>
                       color: const Color(0xFFFFD700),
                       shadows: [
                         Shadow(
-                          color: const Color(0xFFFFD700).withOpacity(0.5),
+                          color: const Color(0xFFFFD700).withValues(alpha: 0.5),
                           blurRadius: 10,
                         ),
                       ],

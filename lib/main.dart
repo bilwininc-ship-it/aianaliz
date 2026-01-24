@@ -20,12 +20,12 @@ void main() async {
       await Firebase.initializeApp(
         options: DefaultFirebaseOptions.currentPlatform,
       );
-      print('✅ Firebase başarıyla başlatıldı');
+      debugPrint('✅ Firebase başarıyla başlatıldı');
     } else {
-      print('⚠️ Firebase zaten başlatılmış');
+      debugPrint('⚠️ Firebase zaten başlatılmış');
     }
   } catch (e) {
-    print('❌ Firebase başlatma hatası: $e');
+    debugPrint('❌ Firebase başlatma hatası: $e');
   }
   
   // Remote Config initialize
@@ -38,7 +38,7 @@ void main() async {
       remoteConfig.printAllConfigs();
     }
   } catch (e) {
-    print('❌ Remote Config hatası: $e');
+    debugPrint('❌ Remote Config hatası: $e');
   }
   
   // App Startup Service
@@ -46,7 +46,7 @@ void main() async {
     final appStartup = AppStartupService();
     await appStartup.initialize();
   } catch (e) {
-    print('❌ App Startup hatası: $e');
+    debugPrint('❌ App Startup hatası: $e');
   }
   
   runApp(const MyApp());
@@ -72,7 +72,7 @@ class MyApp extends StatelessWidget {
             // Localization yapılandırması
             locale: languageProvider.locale,
             supportedLocales: AppLocalizations.supportedLocales,
-            localizationsDelegates: const [
+            localizationsDelegates: [
               AppLocalizations.delegate,
               GlobalMaterialLocalizations.delegate,
               GlobalWidgetsLocalizations.delegate,

@@ -21,47 +21,48 @@ import '../../screens/static/about_screen.dart';
 import '../../screens/static/help_support_screen.dart';
 
 final router = GoRouter(
-  initialLocation: '/onboarding',
+  initialLocation: '/login',
   
   // ✅ Firebase Auth ile oturum kontrolü
   refreshListenable: GoRouterRefreshStream(
     FirebaseAuth.instance.authStateChanges(),
   ),
   
-  // ✅ Yönlendirme mantığı
+  // ✅ Yönlendirme mantığı (Modernize User Flow)
   redirect: (context, state) async {
     final user = FirebaseAuth.instance.currentUser;
     final isLoggedIn = user != null;
     final currentLocation = state.matchedLocation;
     
-    // Check onboarding status
-    final prefs = await SharedPreferences.getInstance();
-    final onboardingCompleted = prefs.getBool('onboarding_completed') ?? false;
-    
-    // Public pages that don't require auth or onboarding
+    // Public pages that don't require auth
     final isPublicPage = currentLocation == '/terms' ||
         currentLocation == '/privacy' ||
         currentLocation == '/about' ||
         currentLocation == '/help';
     
-    // If onboarding not completed and not on onboarding/public page
-    if (!onboardingCompleted && currentLocation != '/onboarding' && !isPublicPage) {
-      return '/onboarding';
+    // ✅ SMART REDIRECT: Authenticated kullanıcı direkt /home'a
+    if (isLoggedIn) {
+      // Kullanıcı onboarding'deyse devam etsin
+      if (currentLocation == '/onboarding') {
+        return null;
+      }
+      
+      // Auth sayfalarında ise home'a yönlendir
+      if (currentLocation == '/login' || currentLocation == '/register') {
+        return '/home';
+      }
+      
+      // Diğer durumlarda olduğu gibi devam
+      return null;
     }
     
-    // If onboarding completed but not logged in
-    if (onboardingCompleted && !isLoggedIn && 
+    // ✅ Kullanıcı giriş yapmamışsa
+    if (!isLoggedIn && 
         currentLocation != '/login' && 
-        currentLocation != '/register' && 
+        currentLocation != '/register' &&
+        currentLocation != '/onboarding' &&
         !isPublicPage) {
       return '/login';
-    }
-    
-    // If logged in and trying to access auth pages
-    if (isLoggedIn && (currentLocation == '/login' || 
-        currentLocation == '/register' || 
-        currentLocation == '/onboarding')) {
-      return '/home';
     }
 
     // Everything is fine

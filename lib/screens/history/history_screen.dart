@@ -22,7 +22,6 @@ class _HistoryScreenState extends State<HistoryScreen> {
   bool _adLoading = false;
   bool _canWatchAd = false;
   Duration _remainingCooldown = Duration.zero;
-  bool _bulletsLoaded = false;
 
   @override
   void initState() {
@@ -40,9 +39,6 @@ class _HistoryScreenState extends State<HistoryScreen> {
     
     if (userId != null) {
       await context.read<BulletinProvider>().fetchUserBulletins(userId);
-      setState(() {
-        _bulletsLoaded = true;
-      });
     }
   }
 
@@ -223,7 +219,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                   gradient: LinearGradient(
                     colors: [
                       Theme.of(context).primaryColor,
-                      Theme.of(context).primaryColor.withOpacity(0.7),
+                      Theme.of(context).primaryColor.withValues(alpha: 0.7),
                     ],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
@@ -231,7 +227,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                   borderRadius: BorderRadius.circular(16),
                   boxShadow: [
                     BoxShadow(
-                      color: Theme.of(context).primaryColor.withOpacity(0.3),
+                      color: Theme.of(context).primaryColor.withValues(alpha: 0.3),
                       blurRadius: 15,
                       offset: const Offset(0, 5),
                     ),
@@ -314,7 +310,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                     borderRadius: BorderRadius.circular(16),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.green.withOpacity(0.3),
+                        color: Colors.green.withValues(alpha: 0.3),
                         blurRadius: 15,
                         offset: const Offset(0, 5),
                       ),
@@ -650,7 +646,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                   fontSize: 14,
                 ),
               ),
-              if (bulletin.analyzedAt != null) ..[
+              if (bulletin.analyzedAt != null) ...[
                 const SizedBox(height: 4),
                 Text(
                   'Analiz: ${_formatDate(bulletin.analyzedAt!)}',

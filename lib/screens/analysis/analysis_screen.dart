@@ -856,7 +856,7 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
       }
       
       // Daha önce değerlendirme yapılmış mı kontrol et
-      final hasRated = await _ratingService.hasRatedBefore();
+      final hasRated = await _ratingService.hasRatedBefore(user.uid);
       
       if (hasRated) {
         if (mounted) {
@@ -1177,9 +1177,9 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.05),
+        color: color.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withOpacity(0.3)),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1200,7 +1200,7 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: _getConfidenceColor(confidence).withOpacity(0.1),
+                  color: _getConfidenceColor(confidence).withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(6),
                   border: Border.all(
                     color: _getConfidenceColor(confidence),

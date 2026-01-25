@@ -177,7 +177,7 @@ class UserService {
       await transactionRef.set(CreditTransaction(
         id: transactionRef.key ?? '',
         userId: userId,
-        type: TransactionType.reward,
+        type: TransactionType.bonus,
         amount: 2,
         balanceAfter: newCredits,
         createdAt: DateTime.now(),

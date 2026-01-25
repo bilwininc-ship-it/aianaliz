@@ -1,11 +1,160 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../../providers/auth_provider.dart';
+import '../../services/rewarded_ad_service.dart';
 import '../../l10n/app_localizations.dart';
+import 'dart:async';
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  final RewardedAdService _rewardedAdService = RewardedAdService();
+  bool _adLoading = false;
+  bool _canWatchAd = false;
+  Duration _remainingCooldown = Duration.zero;
+  Timer? _cooldownTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkAdAvailability();
+    _setupAdCallbacks();
+    _startCooldownTimer();
+  }
+
+  @override
+  void dispose() {
+    _cooldownTimer?.cancel();
+    _rewardedAdService.dispose();
+    super.dispose();
+  }
+
+  /// Ad availability kontrolü
+  Future<void> _checkAdAvailability() async {
+    final canWatch = await _rewardedAdService.canWatchAd();
+    final remaining = await _rewardedAdService.getRemainingCooldown();
+    
+    if (mounted) {
+      setState(() {
+        _canWatchAd = canWatch;
+        _remainingCooldown = remaining;
+      });
+    }
+    
+    // Eğer izlenebilirse reklamı yükle
+    if (canWatch && !_rewardedAdService.isAdLoaded) {
+      _rewardedAdService.loadAd();
+    }
+  }
+
+  /// Cooldown timer başlat (her saniye güncelle)
+  void _startCooldownTimer() {
+    _cooldownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (mounted) {
+        _checkAdAvailability();
+      }
+    });
+  }
+
+  /// Ad callback'lerini ayarla
+  void _setupAdCallbacks() {
+    _rewardedAdService.onAdLoaded = () {
+      if (mounted) {
+        setState(() {
+          _adLoading = false;
+        });
+      }
+    };
+
+    _rewardedAdService.onAdFailedToLoad = () {
+      if (mounted) {
+        setState(() {
+          _adLoading = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Reklam yüklenemedi. Lütfen tekrar deneyin.'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
+    };
+
+    _rewardedAdService.onRewardEarned = () {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('🎉 Tebrikler! Kredi hesabınıza eklendi'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 3),
+          ),
+        );
+        _checkAdAvailability();
+        // Kullanıcı verilerini yenile
+        context.read<AuthProvider>().refreshUser();
+      }
+    };
+
+    _rewardedAdService.onError = (message) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(message),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    };
+  }
+
+  /// Ödüllü reklamı izle
+  Future<void> _watchRewardedAd() async {
+    final userId = FirebaseAuth.instance.currentUser?.uid;
+    if (userId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Kullanıcı oturumu bulunamadı'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    if (!_rewardedAdService.isAdLoaded) {
+      setState(() {
+        _adLoading = true;
+      });
+      await _rewardedAdService.loadAd();
+    } else {
+      await _rewardedAdService.showAd(userId);
+    }
+  }
+
+  /// Cooldown zamanını formatla
+  String _formatCooldown(Duration duration) {
+    if (duration.inSeconds <= 0) {
+      return 'Hazır!';
+    }
+    
+    final hours = duration.inHours;
+    final minutes = duration.inMinutes.remainder(60);
+    final seconds = duration.inSeconds.remainder(60);
+    
+    if (hours > 0) {
+      return '$hours saat $minutes dakika';
+    } else if (minutes > 0) {
+      return '$minutes dakika $seconds saniye';
+    } else {
+      return '$seconds saniye';
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -96,6 +245,148 @@ class HomeScreen extends StatelessWidget {
                 ],
               ),
             ),
+
+            // ✅ ÖDÜLLÜ REKLAM KARTI (Sadece ücretsiz kullanıcılar için)
+            if (!authProvider.isPremium)
+              Container(
+                margin: const EdgeInsets.symmetric(horizontal: 16),
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF00C853), Color(0xFF64DD17)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF00C853).withOpacity(0.3),
+                      blurRadius: 15,
+                      offset: const Offset(0, 5),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: const [
+                        Icon(
+                          Icons.play_circle_filled,
+                          color: Colors.white,
+                          size: 32,
+                        ),
+                        SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            'Ücretsiz Kredi Kazan! 🎁',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    const Text(
+                      'Kısa bir reklam izle, kredi kazan!\nHer saatte bir yeni reklam izleyebilirsin.',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        height: 1.4,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    
+                    // Cooldown Sayacı
+                    if (!_canWatchAd && _remainingCooldown.inSeconds > 0)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(
+                              Icons.timer,
+                              color: Colors.white,
+                              size: 20,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Sonraki reklam: ${_formatCooldown(_remainingCooldown)}',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    
+                    if (_canWatchAd || _remainingCooldown.inSeconds > 0)
+                      const SizedBox(height: 16),
+                    
+                    // Reklam İzle Butonu
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        onPressed: _canWatchAd && !_adLoading 
+                            ? _watchRewardedAd 
+                            : null,
+                        icon: _adLoading
+                            ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.green,
+                                ),
+                              )
+                            : Icon(
+                                _canWatchAd 
+                                    ? Icons.play_arrow 
+                                    : Icons.lock_clock,
+                                size: 24,
+                              ),
+                        label: Text(
+                          _adLoading
+                              ? 'Yükleniyor...'
+                              : _canWatchAd
+                                  ? 'Reklam İzle ve Kredi Kazan'
+                                  : 'Bekleme Süresinde',
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.white,
+                          foregroundColor: _canWatchAd 
+                              ? const Color(0xFF00C853) 
+                              : Colors.grey,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          elevation: 4,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            
+            const SizedBox(height: 24),
 
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),

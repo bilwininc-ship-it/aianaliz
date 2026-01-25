@@ -26,6 +26,21 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool _obscureConfirmPassword = true;
   bool _acceptedTerms = false;
   bool _acceptedPrivacy = false;
+  
+  // ✅ Seçilen dil state'i (Firebase'e kaydetmek için)
+  String _selectedLanguage = 'tr'; // Default: Türkçe
+
+  @override
+  void initState() {
+    super.initState();
+    // Başlangıçta mevcut dili al
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final languageProvider = context.read<LanguageProvider>();
+      setState(() {
+        _selectedLanguage = languageProvider.isTurkish ? 'tr' : 'en';
+      });
+    });
+  }
 
   @override
   void dispose() {
@@ -58,10 +73,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
     try {
       final authProvider = context.read<AuthProvider>();
+      
+      // ✅ Seçilen dili Firebase'e gönder
       final success = await authProvider.signUpWithEmail(
         email: _emailController.text.trim(),
         password: _passwordController.text,
         name: _nameController.text.trim(),
+        selectedLanguage: _selectedLanguage, // ✅ Dil gönderiliyor
       );
 
       if (mounted && success) {
@@ -127,6 +145,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
               ],
             ),
             onSelected: (String languageCode) {
+              // ✅ Hem UI'yi değiştir hem de seçilen dili kaydet
+              setState(() {
+                _selectedLanguage = languageCode;
+              });
+              
               if (languageCode == 'tr') {
                 languageProvider.changeLanguage('tr', 'TR');
               } else {

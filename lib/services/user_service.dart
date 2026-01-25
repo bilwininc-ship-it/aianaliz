@@ -9,10 +9,9 @@ class UserService {
   Future<bool> checkIpBan(String? ipAddress, String? deviceId) async {
     try {
       if (ipAddress == null && deviceId == null) {
-        return false; // IP/Device ID yoksa ban kontrolü yapma
+        return false;
       }
 
-      // Tüm kullanıcıları kontrol et
       final usersRef = _database.ref('users');
       final snapshot = await usersRef.get();
       
@@ -23,7 +22,6 @@ class UserService {
       final usersData = Map<String, dynamic>.from(snapshot.value as Map);
       int accountCount = 0;
       
-      // Aynı IP veya Device ID'ye sahip hesap sayısını say
       usersData.forEach((uid, value) {
         final userData = Map<String, dynamic>.from(value as Map);
         final userIp = userData['ipAddress'];
@@ -35,15 +33,12 @@ class UserService {
         }
       });
       
-      // 1'den fazla hesap varsa ban
       if (accountCount >= 1) {
-        print('⚠️ IP/Device ban kontrolü: $accountCount hesap bulundu');
         return true;
       }
       
       return false;
     } catch (e) {
-      print('❌ IP ban kontrolü hatası: $e');
       return false;
     }
   }
@@ -53,9 +48,8 @@ class UserService {
     try {
       final userRef = _database.ref('users/$uid');
       await userRef.update({'isBanned': true});
-      print('✅ Kullanıcı yasaklandı: $uid');
     } catch (e) {
-      print('❌ Kullanıcı yasaklama hatası: $e');
+      // Silent fail
     }
   }
   
@@ -66,7 +60,6 @@ class UserService {
       final snapshot = await ref.get();
       
       if (snapshot.exists && snapshot.value != null) {
-        // MEVCUT KULLANICI - Sadece lastLoginAt güncelle, KREDİLERİ KORU
         final existingData = Map<String, dynamic>.from(snapshot.value as Map);
         final existingUser = UserModel.fromJson(user.uid, existingData);
         
@@ -76,15 +69,10 @@ class UserService {
           'photoUrl': user.photoUrl ?? existingUser.photoUrl,
           'email': user.email,
         });
-        
-        print('✅ Mevcut kullanıcı güncellendi (krediler korundu): ${user.uid}');
       } else {
-        // YENİ KULLANICI - Tam veriyle kaydet
         await ref.set(user.toMap());
-        print('✅ Yeni kullanıcı oluşturuldu (3 kredi ile): ${user.uid}');
       }
     } catch (e) {
-      print('❌ Kullanıcı oluşturma/güncelleme hatası: $e');
       rethrow;
     }
   }
@@ -101,7 +89,6 @@ class UserService {
       }
       return null;
     } catch (e) {
-      print('❌ Kullanıcı getirme hatası: $e');
       return null;
     }
   }
@@ -138,10 +125,8 @@ class UserService {
       final user = UserModel.fromJson(userId, userData);
       final newCredits = user.credits + amount;
       
-      // Kullanıcı kredisini güncelle
       await userRef.update({'credits': newCredits});
       
-      // İşlem kaydı oluştur
       final transactionRef = _database.ref('credit_transactions').push();
       await transactionRef.set(CreditTransaction(
         id: transactionRef.key ?? '',
@@ -155,10 +140,52 @@ class UserService {
         purchaseId: purchaseId,
       ).toMap());
       
-      print('✅ $amount kredi eklendi. Yeni bakiye: $newCredits');
       return true;
     } catch (e) {
-      print('❌ Kredi ekleme hatası: $e');
+      return false;
+    }
+  }
+  
+  // ✅ YENİ: Puanlama Bonusu (+2 Kredi) - GÜVENLİK KİLİDİ
+  Future<bool> addRatingBonus(String userId) async {
+    try {
+      final userRef = _database.ref('users/$userId');
+      final snapshot = await userRef.get();
+      
+      if (!snapshot.exists || snapshot.value == null) {
+        throw Exception('Kullanıcı bulunamadı');
+      }
+      
+      final userData = Map<String, dynamic>.from(snapshot.value as Map);
+      final user = UserModel.fromJson(userId, userData);
+      
+      // ⚠️ GÜVENLIK: Daha önce puanlama bonusu almış mı kontrol et
+      if (user.hasRatedApp) {
+        return false; // Zaten bonus almış, tekrar veremeyiz
+      }
+      
+      final newCredits = user.credits + 2;
+      
+      // Atomik güncelleme: hasRatedApp + credits birlikte
+      await userRef.update({
+        'credits': newCredits,
+        'hasRatedApp': true,
+      });
+      
+      // İşlem kaydı
+      final transactionRef = _database.ref('credit_transactions').push();
+      await transactionRef.set(CreditTransaction(
+        id: transactionRef.key ?? '',
+        userId: userId,
+        type: TransactionType.reward,
+        amount: 2,
+        balanceAfter: newCredits,
+        createdAt: DateTime.now(),
+        description: 'Uygulamayı puanlama bonusu',
+      ).toMap());
+      
+      return true;
+    } catch (e) {
       return false;
     }
   }
@@ -176,44 +203,36 @@ class UserService {
       final userData = Map<String, dynamic>.from(snapshot.value as Map);
       final user = UserModel.fromJson(userId, userData);
       
-      // Premium kullanıcı kontrolü
       if (user.isActivePremium) {
-        // Premium kullanıcı, kredi düşmesin ama işlem sayısı artsın
         await userRef.update({
           'totalAnalysisCount': user.totalAnalysisCount + 1,
         });
         
-        // Premium kullanım kaydı
         final transactionRef = _database.ref('credit_transactions').push();
         await transactionRef.set(CreditTransaction(
           id: transactionRef.key ?? '',
           userId: userId,
           type: TransactionType.usage,
-          amount: 0, // Premium için 0
+          amount: 0,
           balanceAfter: user.credits,
           createdAt: DateTime.now(),
           description: 'Premium analiz - kredi düşmedi',
         ).toMap());
         
-        print('✅ Premium kullanıcı - kredi düşmedi');
         return true;
       }
       
-      // Kredi kontrolü
       if (user.credits <= 0) {
-        print('❌ Yetersiz kredi');
         throw Exception('Yetersiz kredi');
       }
       
       final newCredits = user.credits - 1;
       
-      // Kullanıcı kredisini düş
       await userRef.update({
         'credits': newCredits,
         'totalAnalysisCount': user.totalAnalysisCount + 1,
       });
       
-      // Kullanım kaydı
       final transactionRef = _database.ref('credit_transactions').push();
       await transactionRef.set(CreditTransaction(
         id: transactionRef.key ?? '',
@@ -227,10 +246,8 @@ class UserService {
             : 'Kredi kullanımı',
       ).toMap());
       
-      print('✅ 1 kredi kullanıldı. Kalan: $newCredits');
       return true;
     } catch (e) {
-      print('❌ Kredi kullanma hatası: $e');
       return false;
     }
   }
@@ -251,7 +268,6 @@ class UserService {
         'premiumExpiresAt': expiresAt.millisecondsSinceEpoch,
       });
       
-      // Premium satın alma kaydı
       final transactionRef = _database.ref('credit_transactions').push();
       await transactionRef.set(CreditTransaction(
         id: transactionRef.key ?? '',
@@ -265,10 +281,8 @@ class UserService {
         purchaseId: purchaseId,
       ).toMap());
       
-      print('✅ Premium abonelik eklendi: $durationDays gün');
       return true;
     } catch (e) {
-      print('❌ Premium ekleme hatası: $e');
       return false;
     }
   }
@@ -292,12 +306,10 @@ class UserService {
         transactions.add(CreditTransaction.fromJson(key, transactionData));
       });
       
-      // Tarihe göre sırala (yeniden eskiye)
       transactions.sort((a, b) => b.createdAt.compareTo(a.createdAt));
       
       return transactions.take(50).toList();
     } catch (e) {
-      print('❌ İşlem geçmişi hatası: $e');
       return [];
     }
   }
@@ -307,10 +319,8 @@ class UserService {
     try {
       final userRef = _database.ref('users/$userId');
       await userRef.update({'preferredLanguage': languageCode});
-      print('✅ Kullanıcı dil tercihi güncellendi: $languageCode');
       return true;
     } catch (e) {
-      print('❌ Dil güncelleme hatası: $e');
       return false;
     }
   }

@@ -7,11 +7,13 @@ import 'dart:io' show Platform;
 import '../models/user_model.dart';
 import '../models/credit_transaction_model.dart';
 import '../services/user_service.dart';
+import '../services/notification_service.dart';
 
 class AuthProvider extends ChangeNotifier {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final UserService _userService = UserService();
   final DeviceInfoPlugin _deviceInfo = DeviceInfoPlugin();
+  final NotificationService _notificationService = NotificationService();
   
   User? _user;
   UserModel? _userModel;
@@ -19,7 +21,7 @@ class AuthProvider extends ChangeNotifier {
   String? _errorMessage;
   DateTime? _lastTokenRefresh;
   
-  // ✅ YENİ: Dil senkronizasyon callback
+  // ✅ Dil senkronizasyon callback
   Function(String)? onLanguageSync;
   
   // Getters
@@ -39,8 +41,12 @@ class AuthProvider extends ChangeNotifier {
       if (user != null) {
         await _ensureValidToken();
         await _loadUserModel(user.uid);
-        // ✅ KÖPRÜ: Kullanıcı giriş yaptıktan sonra dil senkronizasyonunu tetikle
+        
+        // ✅ Dil senkronizasyonu
         _triggerLanguageSync(user.uid);
+        
+        // ✅ FCM Token kaydet
+        await _saveFcmToken(user.uid);
       } else {
         _userModel = null;
         _lastTokenRefresh = null;
@@ -56,7 +62,7 @@ class AuthProvider extends ChangeNotifier {
     Future.delayed(const Duration(minutes: 30), () async {
       if (_user != null) {
         await _ensureValidToken();
-        _startTokenRefreshTimer(); // Restart timer
+        _startTokenRefreshTimer();
       }
     });
   }
@@ -65,16 +71,14 @@ class AuthProvider extends ChangeNotifier {
     try {
       if (_user == null) return;
       
-      // Refresh token if it's been more than 45 minutes since last refresh
       final now = DateTime.now();
       if (_lastTokenRefresh == null || 
           now.difference(_lastTokenRefresh!).inMinutes > 45) {
-        await _user!.getIdToken(true); // Force refresh
+        await _user!.getIdToken(true);
         _lastTokenRefresh = now;
-        print('✅ Token yenilendi: ${now.toIso8601String()}');
       }
     } catch (e) {
-      print('⚠️ Token yenileme hatası: $e');
+      // Silent fail
     }
   }
   
@@ -84,37 +88,31 @@ class AuthProvider extends ChangeNotifier {
       _userModel = userModel;
       notifyListeners();
     } catch (e) {
-      print('❌ User model yükleme hatası: $e');
+      // Silent fail
     }
   }
   
-  /// ✅ YENİ: Dil senkronizasyonunu tetikle
+  /// ✅ Dil senkronizasyonu tetikle
   void _triggerLanguageSync(String uid) async {
     try {
       final userModel = await _userService.getUser(uid);
       if (userModel != null && userModel.preferredLanguage.isNotEmpty) {
-        debugPrint('🔄 Firebase\'den dil senkronize ediliyor: ${userModel.preferredLanguage}');
-        // LanguageProvider'a callback ile bildir
         if (onLanguageSync != null) {
           onLanguageSync!(userModel.preferredLanguage);
         }
       }
     } catch (e) {
-      debugPrint('⚠️ Dil senkronizasyonu hatası: $e');
+      // Silent fail
     }
   }
   
-  /// Kullanıcı modeli yüklendikten sonra dil senkronizasyonunu tetikle
-  Future<void> _syncUserLanguage(String uid) async {
+  /// ✅ FCM Token'ı Firebase'e kaydet
+  Future<void> _saveFcmToken(String uid) async {
     try {
-      final userModel = await _userService.getUser(uid);
-      if (userModel != null && userModel.preferredLanguage.isNotEmpty) {
-        // LanguageProvider'ı güncelle (context olmadan erişilemez, global event bus kullanılabilir)
-        // Bu metod AuthProvider'dan LanguageProvider'a dil bilgisini iletmek için kullanılacak
-        debugPrint('🔄 Kullanıcı dil tercihi: ${userModel.preferredLanguage}');
-      }
+      await _notificationService.initialize();
+      await _notificationService.saveFcmTokenToDatabase(uid);
     } catch (e) {
-      debugPrint('⚠️ Dil senkronizasyonu hatası: $e');
+      // Silent fail
     }
   }
   
@@ -129,18 +127,16 @@ class AuthProvider extends ChangeNotifier {
     required String email,
     required String password,
     required String name,
-    String? selectedLanguage, // Yeni parametre: kayıt sırasında seçilen dil
+    String? selectedLanguage,
   }) async {
     try {
       _isLoading = true;
       _errorMessage = null;
       notifyListeners();
       
-      // IP ve Device ID al
       final ipAddress = await _getIpAddress();
       final deviceId = await _getDeviceId();
       
-      // IP BAN KONTROLÜ
       final isBanned = await _userService.checkIpBan(ipAddress, deviceId);
       if (isBanned) {
         _isLoading = false;
@@ -170,16 +166,16 @@ class AuthProvider extends ChangeNotifier {
           ipAddress: ipAddress,
           deviceId: deviceId,
           isBanned: false,
-          preferredLanguage: selectedLanguage ?? 'tr', // Seçilen dili kaydet
+          preferredLanguage: selectedLanguage ?? 'tr',
         );
         
         await _userService.createOrUpdateUser(newUser);
-        
         await _loadUserModel(_user!.uid);
         listenToUserModel(_user!.uid);
         
-        // ✅ Kayıt sonrası dil senkronizasyonu
+        // ✅ Kayıt sonrası senkronizasyon
         _triggerLanguageSync(_user!.uid);
+        await _saveFcmToken(_user!.uid);
       }
       
       _isLoading = false;
@@ -215,7 +211,6 @@ class AuthProvider extends ChangeNotifier {
       _user = _auth.currentUser;
       
       if (_user != null) {
-        // Kullanıcı ban kontrolü
         final existingUser = await _userService.getUser(_user!.uid);
         if (existingUser != null && existingUser.isBanned) {
           await _auth.signOut();
@@ -226,7 +221,6 @@ class AuthProvider extends ChangeNotifier {
           return false;
         }
         
-        // Giriş başarılı - Sadece lastLoginAt güncelle (KREDİLER KORUNUR)
         await _userService.createOrUpdateUser(UserModel(
           uid: _user!.uid,
           email: _user!.email ?? email,
@@ -239,8 +233,9 @@ class AuthProvider extends ChangeNotifier {
         await _loadUserModel(_user!.uid);
         listenToUserModel(_user!.uid);
         
-        // ✅ GİRİŞ SONRASI DİL SENKRONİZASYONU (KRİTİK)
+        // ✅ Giriş sonrası senkronizasyon
         _triggerLanguageSync(_user!.uid);
+        await _saveFcmToken(_user!.uid);
       }
       
       _isLoading = false;
@@ -341,7 +336,6 @@ class AuthProvider extends ChangeNotifier {
     return success;
   }
   
-  // Alternatif metod isimleri (LoginScreen için gerekli)
   Future<bool> signInWithEmailAndPassword(String email, String password) async {
     return await signInWithEmail(email: email, password: password);
   }
@@ -383,38 +377,23 @@ class AuthProvider extends ChangeNotifier {
     }
   }
   
-  // ✅ YENİ: Kullanıcı verilerini yenile (Rewarded Ad için)
   Future<void> refreshUser() async {
     if (_user != null) {
       await _loadUserModel(_user!.uid);
     }
   }
   
-  // Token geçerliliğini kontrol et ve gerekirse yenile
   Future<String?> getValidToken() async {
     try {
-      if (_user == null) {
-        print('❌ Kullanıcı oturumu yok');
-        return null;
-      }
-      
+      if (_user == null) return null;
       await _ensureValidToken();
       final token = await _user!.getIdToken();
-      
-      if (token == null || token.isEmpty) {
-        print('❌ Token alınamadı');
-        return null;
-      }
-      
-      print('✅ Geçerli token alındı');
       return token;
     } catch (e) {
-      print('❌ Token alma hatası: $e');
       return null;
     }
   }
   
-  // IP adresini al
   Future<String?> _getIpAddress() async {
     try {
       final response = await http.get(Uri.parse('https://api.ipify.org?format=json'));
@@ -423,23 +402,22 @@ class AuthProvider extends ChangeNotifier {
         return data['ip'];
       }
     } catch (e) {
-      print('⚠️ IP adresi alınamadı: $e');
+      // Silent fail
     }
     return null;
   }
   
-  // Cihaz ID'sini al
   Future<String?> _getDeviceId() async {
     try {
       if (Platform.isAndroid) {
         final androidInfo = await _deviceInfo.androidInfo;
-        return androidInfo.id; // Android ID
+        return androidInfo.id;
       } else if (Platform.isIOS) {
         final iosInfo = await _deviceInfo.iosInfo;
-        return iosInfo.identifierForVendor; // iOS Vendor ID
+        return iosInfo.identifierForVendor;
       }
     } catch (e) {
-      print('⚠️ Device ID alınamadı: $e');
+      // Silent fail
     }
     return null;
   }

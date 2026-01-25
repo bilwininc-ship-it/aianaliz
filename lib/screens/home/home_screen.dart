@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import '../../providers/auth_provider.dart';
+import '../../l10n/app_localizations.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -10,6 +11,7 @@ class HomeScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final authProvider = context.watch<AuthProvider>();
     final userModel = authProvider.userModel;
+    final loc = AppLocalizations.of(context)!;
 
     return Scaffold(
       appBar: AppBar(
@@ -62,8 +64,8 @@ class HomeScreen extends StatelessWidget {
                       Expanded(
                         child: Text(
                           authProvider.isPremium 
-                              ? 'Premium Üye'
-                              : 'Hoş Geldiniz',
+                              ? loc.t('premium_member_welcome')
+                              : loc.t('welcome_message'),
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: 20,
@@ -75,7 +77,7 @@ class HomeScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    userModel?.displayName ?? userModel?.email ?? 'Kullanıcı',
+                    userModel?.displayName ?? userModel?.email ?? loc.t('user'),
                     style: const TextStyle(
                       color: Colors.white70,
                       fontSize: 16,
@@ -84,7 +86,7 @@ class HomeScreen extends StatelessWidget {
                   if (!authProvider.isPremium) ...[
                     const SizedBox(height: 16),
                     Text(
-                      'Kalan ${authProvider.credits} analiz hakkınız var',
+                      '${loc.t('remaining_text')} ${authProvider.credits} ${loc.t('you_have_analysis_rights')}',
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 14,
@@ -101,7 +103,7 @@ class HomeScreen extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Hızlı İşlemler',
+                    loc.t('quick_actions_title'),
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
                           fontWeight: FontWeight.bold,
                         ),
@@ -114,8 +116,8 @@ class HomeScreen extends StatelessWidget {
                         child: _buildActionCard(
                           context,
                           icon: Icons.analytics,
-                          title: 'Yeni Analiz',
-                          subtitle: '${authProvider.canAnalyze ? "Başlat" : "Kredi Gerekli"}',
+                          title: loc.t('new_analysis_action'),
+                          subtitle: authProvider.canAnalyze ? loc.t('start_action') : loc.t('credit_required_action'),
                           color: Colors.blue,
                           onTap: () {
                             if (authProvider.canAnalyze) {
@@ -123,9 +125,9 @@ class HomeScreen extends StatelessWidget {
                             } else {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
-                                  content: const Text('Analiz için kredi satın alın'),
+                                  content: Text(loc.t('purchase_credits_message')),
                                   action: SnackBarAction(
-                                    label: 'Satın Al',
+                                    label: loc.t('buy'),
                                     onPressed: () => context.push('/subscription'),
                                   ),
                                 ),
@@ -139,8 +141,8 @@ class HomeScreen extends StatelessWidget {
                         child: _buildActionCard(
                           context,
                           icon: Icons.history,
-                          title: 'Geçmiş',
-                          subtitle: 'Analizlerim',
+                          title: loc.t('history_action'),
+                          subtitle: loc.t('my_analyses'),
                           color: Colors.purple,
                           onTap: () => context.push('/history'),
                         ),
@@ -154,8 +156,8 @@ class HomeScreen extends StatelessWidget {
                         child: _buildActionCard(
                           context,
                           icon: Icons.stars,
-                          title: 'Kredi Al',
-                          subtitle: 'Paketler',
+                          title: loc.t('get_credits_action'),
+                          subtitle: loc.t('packages_action'),
                           color: Colors.orange,
                           onTap: () => context.push('/subscription'),
                         ),
@@ -165,8 +167,8 @@ class HomeScreen extends StatelessWidget {
                         child: _buildActionCard(
                           context,
                           icon: Icons.settings,
-                          title: 'Ayarlar',
-                          subtitle: 'Profil',
+                          title: loc.t('settings_action'),
+                          subtitle: loc.t('profile_action'),
                           color: Colors.grey,
                           onTap: () => context.push('/profile'),
                         ),
@@ -184,7 +186,7 @@ class HomeScreen extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'İstatistikler',
+                    loc.t('statistics_title'),
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
                           fontWeight: FontWeight.bold,
                         ),
@@ -202,7 +204,7 @@ class HomeScreen extends StatelessWidget {
                         _buildStatRow(
                           context,
                           icon: Icons.analytics_outlined,
-                          label: 'Toplam Analiz',
+                          label: loc.t('total_analysis_count'),
                           value: '${userModel?.totalAnalysisCount ?? 0}',
                           color: Colors.blue,
                         ),
@@ -210,9 +212,9 @@ class HomeScreen extends StatelessWidget {
                         _buildStatRow(
                           context,
                           icon: Icons.stars_outlined,
-                          label: 'Kalan Kredi',
+                          label: loc.t('remaining_credits_count'),
                           value: authProvider.isPremium 
-                              ? '∞ (Premium)' 
+                              ? '∞ (${loc.t('premium_membership_status')})' 
                               : '${authProvider.credits}',
                           color: Colors.orange,
                         ),
@@ -220,10 +222,10 @@ class HomeScreen extends StatelessWidget {
                         _buildStatRow(
                           context,
                           icon: Icons.workspace_premium_outlined,
-                          label: 'Üyelik Durumu',
+                          label: loc.t('membership_status_label'),
                           value: authProvider.isPremium 
-                              ? 'Premium' 
-                              : 'Standart',
+                              ? loc.t('premium_membership_status')
+                              : loc.t('standard_membership'),
                           color: authProvider.isPremium 
                               ? Colors.amber 
                               : Colors.grey,
@@ -257,10 +259,10 @@ class HomeScreen extends StatelessWidget {
                           size: 32,
                         ),
                         const SizedBox(width: 12),
-                        const Expanded(
+                        Expanded(
                           child: Text(
-                            'Premium\'a Geç',
-                            style: TextStyle(
+                            loc.t('upgrade_to_premium_title'),
+                            style: const TextStyle(
                               color: Colors.white,
                               fontSize: 22,
                               fontWeight: FontWeight.bold,
@@ -270,11 +272,11 @@ class HomeScreen extends StatelessWidget {
                       ],
                     ),
                     const SizedBox(height: 12),
-                    const Text(
-                      '✨ Sınırsız analiz\n'
-                      '✨ Reklamsız deneyim\n'
-                      '✨ Öncelikli destek',
-                      style: TextStyle(
+                    Text(
+                      '${loc.t('premium_benefit_1')}\n'
+                      '${loc.t('premium_benefit_2')}\n'
+                      '${loc.t('premium_benefit_3')}',
+                      style: const TextStyle(
                         color: Colors.white,
                         fontSize: 15,
                         height: 1.5,
@@ -293,9 +295,9 @@ class HomeScreen extends StatelessWidget {
                             borderRadius: BorderRadius.circular(10),
                           ),
                         ),
-                        child: const Text(
-                          'Premium Paketleri Gör',
-                          style: TextStyle(
+                        child: Text(
+                          loc.t('see_premium_packages'),
+                          style: const TextStyle(
                             fontWeight: FontWeight.bold,
                             fontSize: 16,
                           ),
@@ -311,7 +313,7 @@ class HomeScreen extends StatelessWidget {
               child: Column(
                 children: [
                   Text(
-                    'AI Spor Pro ile maç tahminlerinizi\nprofesyonel analiz edin',
+                    loc.t('footer_message'),
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       color: Colors.grey[600],
@@ -320,7 +322,7 @@ class HomeScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Powered by Bilwin.inc',
+                    loc.t('powered_by'),
                     style: TextStyle(
                       color: Colors.grey[400],
                       fontSize: 12,

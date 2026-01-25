@@ -28,15 +28,18 @@ class RewardedAdService {
   Function()? onRewardEarned;
   Function(String)? onError;
 
-  /// Kullanıcı reklam izleyebilir mi? (24 saat cooldown kontrolü)
+  /// Kullanıcı reklam izleyebilir mi? (Remote Config'den cooldown kontrolü)
   Future<bool> canWatchAd() async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final lastWatchTime = prefs.getInt('last_rewarded_ad_watch') ?? 0;
       final currentTime = DateTime.now().millisecondsSinceEpoch;
       
-      // 24 saat = 86400000 milisaniye
-      const cooldownPeriod = 86400000;
+      // ✅ Remote Config'den cooldown süresini al (saat cinsinden)
+      final cooldownHours = _remoteConfig.giftCreditIntervalHours;
+      final cooldownPeriod = cooldownHours * 3600000; // Saat -> milisaniye
+      
+      debugPrint('⏰ Ödüllü Reklam Cooldown: $cooldownHours saat');
       
       return (currentTime - lastWatchTime) >= cooldownPeriod;
     } catch (e) {
@@ -52,7 +55,10 @@ class RewardedAdService {
       final lastWatchTime = prefs.getInt('last_rewarded_ad_watch') ?? 0;
       final currentTime = DateTime.now().millisecondsSinceEpoch;
       
-      const cooldownPeriod = 86400000; // 24 saat
+      // ✅ Remote Config'den cooldown süresini al
+      final cooldownHours = _remoteConfig.giftCreditIntervalHours;
+      final cooldownPeriod = cooldownHours * 3600000; // Saat -> milisaniye
+      
       final elapsed = currentTime - lastWatchTime;
       final remaining = cooldownPeriod - elapsed;
       
@@ -66,7 +72,6 @@ class RewardedAdService {
       return Duration.zero;
     }
   }
-
   /// Ödüllü reklamı yükle
   Future<void> loadAd() async {
     if (_isLoading || _isAdLoaded) {
@@ -183,18 +188,21 @@ class RewardedAdService {
     }
   }
 
-  /// Kullanıcıya +1 kredi ekle (UserService üzerinden)
+  /// Kullanıcıya kredi ekle (Remote Config'den miktar al)
   Future<void> _addCreditToUser(String userId) async {
     try {
+      // ✅ Remote Config'den kredi miktarını al
+      final creditAmount = _remoteConfig.giftCreditAmount;
+      
       final success = await _userService.addCredits(
         userId: userId,
-        amount: 1,
+        amount: creditAmount,
         type: TransactionType.rewardedAd,
-        description: 'Ödüllü reklam izlendi - 1 kredi kazanıldı',
+        description: 'Ödüllü reklam izlendi - $creditAmount kredi kazanıldı',
       );
 
       if (success) {
-        debugPrint('✅ Kullanıcıya +1 kredi eklendi (Rewarded Ad)');
+        debugPrint('✅ Kullanıcıya +$creditAmount kredi eklendi (Rewarded Ad)');
       } else {
         debugPrint('❌ Kredi eklenemedi');
       }

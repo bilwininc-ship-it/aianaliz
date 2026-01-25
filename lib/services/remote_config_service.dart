@@ -20,6 +20,10 @@ class RemoteConfigService {
     'ADMOB_BANNER_AD_UNIT': '',
     'ADMOB_INTERSTITIAL_AD_UNIT': '',
     'ADMOB_REWARDED_AD_UNIT': '',
+    // ✅ 2. BÖLÜM: Reklam Ekonomisi Parametreleri
+    'history_ad_threshold_hours': 24, // Geçmiş alanı reklam sınırı (saat)
+    'gift_credit_interval_hours': 1,  // Ödüllü reklam bekleme süresi (saat)
+    'gift_credit_amount': 1,          // Verilecek kredi miktarı
   };
 
   Future<void> initialize() async {
@@ -77,6 +81,11 @@ class RemoteConfigService {
   String get admobBannerAdUnit => _remoteConfig.getString('ADMOB_BANNER_AD_UNIT');
   String get admobInterstitialAdUnit => _remoteConfig.getString('ADMOB_INTERSTITIAL_AD_UNIT');
   String get admobRewardedAdUnit => _remoteConfig.getString('ADMOB_REWARDED_AD_UNIT');
+  
+  // ✅ 2. BÖLÜM: Reklam Ekonomisi Getters
+  int get historyAdThresholdHours => _remoteConfig.getInt('history_ad_threshold_hours');
+  int get giftCreditIntervalHours => _remoteConfig.getInt('gift_credit_interval_hours');
+  int get giftCreditAmount => _remoteConfig.getInt('gift_credit_amount');
 
   Future<void> refresh() async {
     try {

@@ -59,9 +59,22 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => AuthProvider()),
-        ChangeNotifierProvider(create: (_) => BulletinProvider()),
         ChangeNotifierProvider(create: (_) => LanguageProvider()..loadLanguage()),
+        ChangeNotifierProvider(
+          create: (context) {
+            final authProvider = AuthProvider();
+            final languageProvider = context.read<LanguageProvider>();
+            
+            // ✅ KÖPRÜ: AuthProvider ve LanguageProvider arasında bağlantı kur
+            authProvider.onLanguageSync = (languageCode) {
+              debugPrint('🔄 AuthProvider\'dan dil senkronizasyonu: $languageCode');
+              languageProvider.syncLanguageFromFirebase(languageCode);
+            };
+            
+            return authProvider;
+          },
+        ),
+        ChangeNotifierProvider(create: (_) => BulletinProvider()),
       ],
       child: Consumer<LanguageProvider>(
         builder: (context, languageProvider, child) {

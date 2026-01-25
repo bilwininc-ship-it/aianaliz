@@ -19,6 +19,9 @@ class AuthProvider extends ChangeNotifier {
   String? _errorMessage;
   DateTime? _lastTokenRefresh;
   
+  // ✅ YENİ: Dil senkronizasyon callback
+  Function(String)? onLanguageSync;
+  
   // Getters
   User? get user => _user;
   UserModel? get userModel => _userModel;
@@ -34,9 +37,10 @@ class AuthProvider extends ChangeNotifier {
       _user = user;
       
       if (user != null) {
-        // Token refresh on auth state change
         await _ensureValidToken();
         await _loadUserModel(user.uid);
+        // ✅ KÖPRÜ: Kullanıcı giriş yaptıktan sonra dil senkronizasyonunu tetikle
+        _triggerLanguageSync(user.uid);
       } else {
         _userModel = null;
         _lastTokenRefresh = null;
@@ -45,7 +49,6 @@ class AuthProvider extends ChangeNotifier {
       notifyListeners();
     });
     
-    // Periodic token refresh every 30 minutes
     _startTokenRefreshTimer();
   }
   
@@ -82,6 +85,22 @@ class AuthProvider extends ChangeNotifier {
       notifyListeners();
     } catch (e) {
       print('❌ User model yükleme hatası: $e');
+    }
+  }
+  
+  /// ✅ YENİ: Dil senkronizasyonunu tetikle
+  void _triggerLanguageSync(String uid) async {
+    try {
+      final userModel = await _userService.getUser(uid);
+      if (userModel != null && userModel.preferredLanguage.isNotEmpty) {
+        debugPrint('🔄 Firebase\'den dil senkronize ediliyor: ${userModel.preferredLanguage}');
+        // LanguageProvider'a callback ile bildir
+        if (onLanguageSync != null) {
+          onLanguageSync!(userModel.preferredLanguage);
+        }
+      }
+    } catch (e) {
+      debugPrint('⚠️ Dil senkronizasyonu hatası: $e');
     }
   }
   
@@ -158,6 +177,9 @@ class AuthProvider extends ChangeNotifier {
         
         await _loadUserModel(_user!.uid);
         listenToUserModel(_user!.uid);
+        
+        // ✅ Kayıt sonrası dil senkronizasyonu
+        _triggerLanguageSync(_user!.uid);
       }
       
       _isLoading = false;
@@ -216,6 +238,9 @@ class AuthProvider extends ChangeNotifier {
         
         await _loadUserModel(_user!.uid);
         listenToUserModel(_user!.uid);
+        
+        // ✅ GİRİŞ SONRASI DİL SENKRONİZASYONU (KRİTİK)
+        _triggerLanguageSync(_user!.uid);
       }
       
       _isLoading = false;

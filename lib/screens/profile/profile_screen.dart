@@ -1,22 +1,28 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/language_provider.dart';
+import '../../l10n/app_localizations.dart';
+import '../../core/constants/app_constants.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
 
   Future<void> _showLogoutDialog(BuildContext context) async {
+    final l10n = AppLocalizations.of(context)!;
+    
     return showDialog(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: const Text('Çıkış Yap'),
-          content: const Text('Çıkış yapmak istediğinize emin misiniz?'),
+          title: Text(l10n.translate('logout_title')),
+          content: Text(l10n.translate('logout_confirm')),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
-              child: const Text('İptal'),
+              child: Text(l10n.translate('cancel')),
             ),
             TextButton(
               onPressed: () async {
@@ -27,9 +33,9 @@ class ProfileScreen extends StatelessWidget {
                   context.go('/login');
                 }
               },
-              child: const Text(
-                'Çıkış Yap',
-                style: TextStyle(color: Colors.red),
+              child: Text(
+                l10n.translate('logout'),
+                style: const TextStyle(color: Colors.red),
               ),
             ),
           ],
@@ -38,15 +44,113 @@ class ProfileScreen extends StatelessWidget {
     );
   }
 
+  Future<void> _showLanguageDialog(BuildContext context) async {
+    final l10n = AppLocalizations.of(context)!;
+    final languageProvider = context.read<LanguageProvider>();
+    final authProvider = context.read<AuthProvider>();
+    
+    return showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text(l10n.translate('select_your_language')),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Text('🇹🇷', style: TextStyle(fontSize: 32)),
+                title: Text(l10n.translate('language_turkish')),
+                trailing: languageProvider.isTurkish
+                    ? const Icon(Icons.check_circle, color: Colors.green)
+                    : null,
+                onTap: () async {
+                  await languageProvider.changeLanguage(
+                    'tr',
+                    'TR',
+                    userId: authProvider.user?.uid,
+                  );
+                  if (context.mounted) {
+                    Navigator.of(context).pop();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(l10n.translate('language_changed')),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                  }
+                },
+              ),
+              const Divider(),
+              ListTile(
+                leading: const Text('🇺🇸', style: TextStyle(fontSize: 32)),
+                title: Text(l10n.translate('language_english')),
+                trailing: languageProvider.isEnglish
+                    ? const Icon(Icons.check_circle, color: Colors.green)
+                    : null,
+                onTap: () async {
+                  await languageProvider.changeLanguage(
+                    'en',
+                    'US',
+                    userId: authProvider.user?.uid,
+                  );
+                  if (context.mounted) {
+                    Navigator.of(context).pop();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(l10n.translate('language_changed')),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                  }
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _openPlayStore(BuildContext context) async {
+    final l10n = AppLocalizations.of(context)!;
+    
+    try {
+      final uri = Uri.parse(AppConstants.PLAY_STORE_URL);
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      } else {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(l10n.translate('page_could_not_open')),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(l10n.translate('page_could_not_open')),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final authProvider = context.watch<AuthProvider>();
+    final languageProvider = context.watch<LanguageProvider>();
     final user = authProvider.user;
     final userModel = authProvider.userModel;
+    final l10n = AppLocalizations.of(context)!;
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Profil'),
+        title: Text(l10n.translate('profile_title')),
         centerTitle: true,
       ),
       body: SingleChildScrollView(
@@ -116,7 +220,7 @@ class ProfileScreen extends StatelessWidget {
 
                   // Ad Soyad
                   Text(
-                    userModel?.displayName ?? 'Kullanıcı',
+                    userModel?.displayName ?? l10n.translate('user_name'),
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 24,
@@ -155,9 +259,9 @@ class ProfileScreen extends StatelessWidget {
                             size: 16,
                           ),
                           const SizedBox(width: 8),
-                          const Text(
-                            'Premium Üye',
-                            style: TextStyle(
+                          Text(
+                            l10n.translate('premium_member_badge'),
+                            style: const TextStyle(
                               color: Colors.white,
                               fontWeight: FontWeight.bold,
                             ),
@@ -179,8 +283,9 @@ class ProfileScreen extends StatelessWidget {
                   Expanded(
                     child: _buildStatCard(
                       context,
+                      l10n,
                       icon: Icons.analytics,
-                      label: 'Toplam Analiz',
+                      label: l10n.translate('total_analysis_stat'),
                       value: '${userModel?.totalAnalysisCount ?? 0}',
                       color: Colors.blue,
                     ),
@@ -189,8 +294,9 @@ class ProfileScreen extends StatelessWidget {
                   Expanded(
                     child: _buildStatCard(
                       context,
+                      l10n,
                       icon: Icons.stars,
-                      label: 'Kalan Kredi',
+                      label: l10n.translate('remaining_credits_stat'),
                       value: authProvider.isPremium
                           ? '∞'
                           : '${authProvider.credits}',
@@ -204,31 +310,33 @@ class ProfileScreen extends StatelessWidget {
             const SizedBox(height: 24),
 
             // Hesap Bölümü
-            _buildSectionTitle(context, 'Hesap'),
+            _buildSectionTitle(context, l10n, l10n.translate('account_section')),
             _buildListTile(
               context,
+              l10n,
               icon: Icons.person_outline,
-              title: 'Hesap Bilgileri',
-              subtitle: 'Ad, soyad, e-posta',
+              title: l10n.translate('account_info'),
+              subtitle: l10n.translate('account_info_subtitle'),
               onTap: () {
                 context.push('/account-settings');
               },
             ),
             _buildListTile(
               context,
+              l10n,
               icon: authProvider.isPremium
                   ? Icons.workspace_premium
                   : Icons.stars_outlined,
               title: authProvider.isPremium
-                  ? 'Premium Üyelik'
-                  : 'Premium\'a Geç',
+                  ? l10n.translate('premium_membership')
+                  : l10n.translate('upgrade_to_premium'),
               subtitle: authProvider.isPremium
-                  ? 'Aktif premium üyeliğiniz var'
-                  : 'Sınırsız analiz ve daha fazlası',
+                  ? l10n.translate('premium_membership_subtitle')
+                  : l10n.translate('upgrade_to_premium_subtitle'),
               trailing: authProvider.isPremium ? null : const Icon(Icons.arrow_forward_ios, size: 16),
               onTap: () {
                 if (authProvider.isPremium) {
-                  _showPremiumDetails(context, userModel);
+                  _showPremiumDetails(context, l10n, userModel);
                 } else {
                   context.push('/subscription');
                 }
@@ -236,9 +344,10 @@ class ProfileScreen extends StatelessWidget {
             ),
             _buildListTile(
               context,
+              l10n,
               icon: Icons.history,
-              title: 'Kredi Geçmişi',
-              subtitle: 'Tüm işlemler',
+              title: l10n.translate('credit_history'),
+              subtitle: l10n.translate('credit_history_subtitle'),
               onTap: () {
                 context.push('/credit-history');
               },
@@ -247,55 +356,78 @@ class ProfileScreen extends StatelessWidget {
             const SizedBox(height: 24),
 
             // Ayarlar Bölümü
-            _buildSectionTitle(context, 'Ayarlar'),
+            _buildSectionTitle(context, l10n, l10n.translate('settings_section')),
             _buildListTile(
               context,
+              l10n,
               icon: Icons.notifications_outlined,
-              title: 'Bildirimler',
-              subtitle: 'Bildirim tercihleri',
+              title: l10n.translate('notifications'),
+              subtitle: l10n.translate('notifications_subtitle'),
               onTap: () {
                 context.push('/notification-settings');
               },
             ),
             _buildListTile(
               context,
+              l10n,
               icon: Icons.language,
-              title: 'Dil',
-              subtitle: 'Türkçe',
-              onTap: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Şu an sadece Türkçe desteklenmektedir')),
-                );
-              },
+              title: l10n.translate('language_setting'),
+              subtitle: languageProvider.isTurkish
+                  ? l10n.translate('language_turkish')
+                  : l10n.translate('language_english'),
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    languageProvider.isTurkish ? '🇹🇷' : '🇺🇸',
+                    style: const TextStyle(fontSize: 20),
+                  ),
+                  const SizedBox(width: 8),
+                  const Icon(Icons.arrow_forward_ios, size: 16),
+                ],
+              ),
+              onTap: () => _showLanguageDialog(context),
             ),
 
             const SizedBox(height: 24),
 
             // Hakkında Bölümü
-            _buildSectionTitle(context, 'Hakkında'),
+            _buildSectionTitle(context, l10n, l10n.translate('about_section')),
             _buildListTile(
               context,
+              l10n,
+              icon: Icons.star_outline,
+              title: l10n.translate('rate_app'),
+              subtitle: l10n.translate('rate_app_subtitle'),
+              onTap: () => _openPlayStore(context),
+            ),
+            _buildListTile(
+              context,
+              l10n,
               icon: Icons.description_outlined,
-              title: 'Kullanıcı Sözleşmesi',
+              title: l10n.translate('terms_of_service_title'),
               onTap: () => context.push('/terms'),
             ),
             _buildListTile(
               context,
+              l10n,
               icon: Icons.privacy_tip_outlined,
-              title: 'Gizlilik Politikası',
+              title: l10n.translate('privacy_policy_title'),
               onTap: () => context.push('/privacy'),
             ),
             _buildListTile(
               context,
+              l10n,
               icon: Icons.info_outline,
-              title: 'Uygulama Hakkında',
-              subtitle: 'Versiyon 1.0.0',
+              title: l10n.translate('app_about'),
+              subtitle: '${l10n.translate('app_version')} ${AppConstants.APP_VERSION}',
               onTap: () => context.push('/about'),
             ),
             _buildListTile(
               context,
+              l10n,
               icon: Icons.help_outline,
-              title: 'Yardım & Destek',
+              title: l10n.translate('help_support'),
               onTap: () => context.push('/help'),
             ),
 
@@ -309,9 +441,9 @@ class ProfileScreen extends StatelessWidget {
                 child: OutlinedButton.icon(
                   onPressed: () => _showLogoutDialog(context),
                   icon: const Icon(Icons.logout, color: Colors.red),
-                  label: const Text(
-                    'Çıkış Yap',
-                    style: TextStyle(color: Colors.red),
+                  label: Text(
+                    l10n.translate('logout'),
+                    style: const TextStyle(color: Colors.red),
                   ),
                   style: OutlinedButton.styleFrom(
                     side: const BorderSide(color: Colors.red),
@@ -328,7 +460,7 @@ class ProfileScreen extends StatelessWidget {
 
             // Footer
             Text(
-              'Powered by Bilwin.inc',
+              'Powered by ${AppConstants.COMPANY_NAME}',
               style: TextStyle(
                 color: Colors.grey[400],
                 fontSize: 12,
@@ -342,7 +474,8 @@ class ProfileScreen extends StatelessWidget {
   }
 
   Widget _buildStatCard(
-    BuildContext context, {
+    BuildContext context,
+    AppLocalizations l10n, {
     required IconData icon,
     required String label,
     required String value,
@@ -384,7 +517,7 @@ class ProfileScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildSectionTitle(BuildContext context, String title) {
+  Widget _buildSectionTitle(BuildContext context, AppLocalizations l10n, String title) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Align(
@@ -401,7 +534,8 @@ class ProfileScreen extends StatelessWidget {
   }
 
   Widget _buildListTile(
-    BuildContext context, {
+    BuildContext context,
+    AppLocalizations l10n, {
     required IconData icon,
     required String title,
     String? subtitle,
@@ -428,7 +562,7 @@ class ProfileScreen extends StatelessWidget {
     );
   }
 
-  void _showPremiumDetails(BuildContext context, userModel) {
+  void _showPremiumDetails(BuildContext context, AppLocalizations l10n, userModel) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -439,22 +573,22 @@ class ProfileScreen extends StatelessWidget {
               color: Colors.amber[700],
             ),
             const SizedBox(width: 8),
-            const Text('Premium Üyelik'),
+            Text(l10n.translate('premium_details_title')),
           ],
         ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('✨ Sınırsız analiz hakkı'),
+            Text(l10n.translate('premium_feature_1')),
             const SizedBox(height: 8),
-            const Text('✨ Reklamsız deneyim'),
+            Text(l10n.translate('premium_feature_2')),
             const SizedBox(height: 8),
-            const Text('✨ Öncelikli destek'),
+            Text(l10n.translate('premium_feature_3')),
             const SizedBox(height: 16),
             if (userModel?.premiumExpiresAt != null) ...[
               Text(
-                'Son kullanma: ${_formatDate(userModel!.premiumExpiresAt!)}',
+                '${l10n.translate('premium_expires')}: ${_formatDate(userModel!.premiumExpiresAt!)}',
                 style: TextStyle(
                   color: Colors.grey[600],
                   fontSize: 13,
@@ -466,7 +600,7 @@ class ProfileScreen extends StatelessWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Tamam'),
+            child: Text(l10n.translate('ok')),
           ),
         ],
       ),

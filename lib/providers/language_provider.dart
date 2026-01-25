@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../services/user_service.dart';
 
 class LanguageProvider extends ChangeNotifier {
+  final UserService _userService = UserService();
   Locale _locale = const Locale('tr', 'TR'); // Varsayılan Türkçe
   
   Locale get locale => _locale;
@@ -16,16 +18,38 @@ class LanguageProvider extends ChangeNotifier {
     debugPrint('✅ Dil yüklendi: $languageCode');
   }
   
-  /// Dil değiştir ve kaydet
-  Future<void> changeLanguage(String languageCode, String countryCode) async {
+  /// Dil değiştir ve kaydet (SharedPreferences + Firebase)
+  Future<void> changeLanguage(String languageCode, String countryCode, {String? userId}) async {
     _locale = Locale(languageCode, countryCode);
     
+    // SharedPreferences'a kaydet
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('language_code', languageCode);
+    await prefs.setString('country_code', countryCode);
+    
+    // Firebase'e kaydet (eğer userId varsa)
+    if (userId != null) {
+      await _userService.updateUserLanguage(userId, languageCode);
+    }
+    
+    notifyListeners();
+    debugPrint('✅ Dil değiştirildi ve senkronize edildi: $languageCode');
+  }
+  
+  /// Firebase'den dil yükle ve uygula
+  Future<void> syncLanguageFromFirebase(String? languageCode) async {
+    if (languageCode == null || languageCode.isEmpty) return;
+    
+    final countryCode = languageCode == 'tr' ? 'TR' : 'US';
+    _locale = Locale(languageCode, countryCode);
+    
+    // SharedPreferences'a da kaydet
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('language_code', languageCode);
     await prefs.setString('country_code', countryCode);
     
     notifyListeners();
-    debugPrint('✅ Dil değiştirildi: $languageCode');
+    debugPrint('✅ Firebase\'den dil senkronize edildi: $languageCode');
   }
   
   /// Türkçe mi?

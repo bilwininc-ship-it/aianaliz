@@ -14,6 +14,7 @@ class UserModel {
   final String? ipAddress; // IP ban sistemi için
   final String? deviceId; // Cihaz ID (IP ban sistemi için)
   final bool isBanned; // Ban durumu
+  final String preferredLanguage; // Tercih edilen dil (tr/en)
   
   UserModel({
     required this.uid,
@@ -29,6 +30,7 @@ class UserModel {
     this.ipAddress,
     this.deviceId,
     this.isBanned = false,
+    this.preferredLanguage = 'tr', // Varsayılan dil Türkçe
   });
   
   // Realtime Database'den user oluştur
@@ -53,6 +55,7 @@ class UserModel {
       ipAddress: data['ipAddress'],
       deviceId: data['deviceId'],
       isBanned: data['isBanned'] ?? false,
+      preferredLanguage: data['preferredLanguage'] ?? 'tr',
     );
   }
   
@@ -71,6 +74,7 @@ class UserModel {
       'ipAddress': ipAddress,
       'deviceId': deviceId,
       'isBanned': isBanned,
+      'preferredLanguage': preferredLanguage,
     };
   }
   
@@ -90,6 +94,7 @@ class UserModel {
       ipAddress: ipAddress,
       deviceId: deviceId,
       isBanned: isBanned,
+      preferredLanguage: preferredLanguage,
     );
   }
   
@@ -109,6 +114,7 @@ class UserModel {
       ipAddress: ipAddress,
       deviceId: deviceId,
       isBanned: isBanned,
+      preferredLanguage: preferredLanguage,
     );
   }
   
@@ -128,6 +134,7 @@ class UserModel {
       ipAddress: ipAddress,
       deviceId: deviceId,
       isBanned: isBanned,
+      preferredLanguage: preferredLanguage,
     );
   }
   

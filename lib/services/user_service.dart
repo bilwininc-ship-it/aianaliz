@@ -301,4 +301,17 @@ class UserService {
       return [];
     }
   }
+  
+  // Kullanıcının dil tercihini güncelle
+  Future<bool> updateUserLanguage(String userId, String languageCode) async {
+    try {
+      final userRef = _database.ref('users/$userId');
+      await userRef.update({'preferredLanguage': languageCode});
+      print('✅ Kullanıcı dil tercihi güncellendi: $languageCode');
+      return true;
+    } catch (e) {
+      print('❌ Dil güncelleme hatası: $e');
+      return false;
+    }
+  }
 }

@@ -28,7 +28,6 @@
                           !data.exists() ||  // 🆕 Yeni kayıtta validation geçsin
                           newData.val() <= data.val() ||  // Azaltma (kullanım)
                           newData.val() === data.val() + 1 ||  // +1 reklam
-                          newData.val() === data.val() + 2 ||  // +2 puanlama bonusu 🌟
                           newData.val() === data.val() + 3 ||  // +3 hoşgeldin
                           newData.val() === data.val() + 5 ||  // +5 paket
                           newData.val() === data.val() + 10 ||  // +10 paket
@@ -65,25 +64,6 @@
                           !data.exists() ||  // 🆕 Yeni kayıtta validation geçsin
                           newData.val() >= data.val()
                         )"
-        },
-        
-        // ⚠️ DİL TERCİHİ VALIDATION (tr/en)
-        "preferredLanguage": {
-          ".validate": "!data.exists() || (newData.isString() && (newData.val() === 'tr' || newData.val() === 'en'))"
-        },
-        
-        // ⚠️ PUANLAMA BONUSU VALIDATION (Bir kez alınabilir)
-        "hasRatedApp": {
-          ".validate": "newData.isBoolean() && (
-                          !data.exists() ||  // 🆕 Yeni kayıtta validation geçsin
-                          data.val() == false ||  // false -> true geçişine izin ver
-                          (data.val() == true && newData.val() == true)  // true ise değişmesin
-                        )"
-        },
-        
-        // ⚠️ FCM TOKEN (Bildirimler için)
-        "fcmToken": {
-          ".validate": "!data.exists() || newData.isString()"
         }
       }
     },

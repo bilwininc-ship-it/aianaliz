@@ -12,13 +12,13 @@ class CountdownTimerWidget extends StatefulWidget {
   final VoidCallback? onComplete;
 
   const CountdownTimerWidget({
-    Key? key,
+    super.key,
     required this.initialDuration,
     this.textStyle,
     this.icon,
     this.iconColor,
     this.onComplete,
-  }) : super(key: key);
+  });
 
   @override
   State<CountdownTimerWidget> createState() => _CountdownTimerWidgetState();
@@ -76,7 +76,7 @@ class _CountdownTimerWidgetState extends State<CountdownTimerWidget> {
       return Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (widget.icon != null) ..[
+          if (widget.icon != null) ...[
             Icon(
               widget.icon,
               color: widget.iconColor ?? Colors.green,
@@ -98,7 +98,7 @@ class _CountdownTimerWidgetState extends State<CountdownTimerWidget> {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        if (widget.icon != null) ..[
+        if (widget.icon != null) ...[
           Icon(
             widget.icon,
             color: widget.iconColor ?? Colors.orange,

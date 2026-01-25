@@ -15,6 +15,8 @@ class UserModel {
   final String? deviceId; // Cihaz ID (IP ban sistemi için)
   final bool isBanned; // Ban durumu
   final String preferredLanguage; // Tercih edilen dil (tr/en)
+  final bool hasRatedApp; // Uygulama puanlandı mı? (Bonus için)
+  final String? fcmToken; // Firebase Cloud Messaging token
   
   UserModel({
     required this.uid,
@@ -31,6 +33,8 @@ class UserModel {
     this.deviceId,
     this.isBanned = false,
     this.preferredLanguage = 'tr', // Varsayılan dil Türkçe
+    this.hasRatedApp = false, // Başlangıçta puanlanmamış
+    this.fcmToken,
   });
   
   // Realtime Database'den user oluştur
@@ -56,6 +60,8 @@ class UserModel {
       deviceId: data['deviceId'],
       isBanned: data['isBanned'] ?? false,
       preferredLanguage: data['preferredLanguage'] ?? 'tr',
+      hasRatedApp: data['hasRatedApp'] ?? false,
+      fcmToken: data['fcmToken'],
     );
   }
   
@@ -75,6 +81,8 @@ class UserModel {
       'deviceId': deviceId,
       'isBanned': isBanned,
       'preferredLanguage': preferredLanguage,
+      'hasRatedApp': hasRatedApp,
+      'fcmToken': fcmToken,
     };
   }
   
@@ -95,6 +103,8 @@ class UserModel {
       deviceId: deviceId,
       isBanned: isBanned,
       preferredLanguage: preferredLanguage,
+      hasRatedApp: hasRatedApp,
+      fcmToken: fcmToken,
     );
   }
   
@@ -115,6 +125,8 @@ class UserModel {
       deviceId: deviceId,
       isBanned: isBanned,
       preferredLanguage: preferredLanguage,
+      hasRatedApp: hasRatedApp,
+      fcmToken: fcmToken,
     );
   }
   
@@ -135,6 +147,8 @@ class UserModel {
       deviceId: deviceId,
       isBanned: isBanned,
       preferredLanguage: preferredLanguage,
+      hasRatedApp: hasRatedApp,
+      fcmToken: fcmToken,
     );
   }
   

@@ -8,14 +8,40 @@ class LanguageProvider extends ChangeNotifier {
   
   Locale get locale => _locale;
   
-  /// Uygulama başlarken dil yükle
+  /// Uygulama başlarken dil yükle (SharedPreferences'dan)
+  /// Firebase senkronizasyonu için loadLanguageWithUser() kullanın
   Future<void> loadLanguage() async {
     final prefs = await SharedPreferences.getInstance();
     final languageCode = prefs.getString('language_code') ?? 'tr';
     final countryCode = prefs.getString('country_code') ?? 'TR';
     _locale = Locale(languageCode, countryCode);
     notifyListeners();
-    debugPrint('✅ Dil yüklendi: $languageCode');
+    debugPrint('✅ Dil yüklendi (SharedPreferences): $languageCode');
+  }
+  
+  /// Kullanıcı giriş yaptıktan sonra Firebase'den dil yükle
+  Future<void> loadLanguageWithUser(String userId) async {
+    try {
+      // Önce SharedPreferences'dan yükle (hızlı)
+      await loadLanguage();
+      
+      // Sonra Firebase'den kontrol et ve senkronize et
+      final user = await _userService.getUser(userId);
+      if (user != null && user.preferredLanguage.isNotEmpty) {
+        final firebaseLang = user.preferredLanguage;
+        final currentLang = _locale.languageCode;
+        
+        // Firebase'deki dil ile local dil farklıysa Firebase'i önceliklendir
+        if (firebaseLang != currentLang) {
+          debugPrint('🔄 Firebase\'den farklı dil tespit edildi: $firebaseLang');
+          await syncLanguageFromFirebase(firebaseLang);
+        } else {
+          debugPrint('✅ Dil senkron: $currentLang');
+        }
+      }
+    } catch (e) {
+      debugPrint('⚠️ Firebase dil yükleme hatası: $e');
+    }
   }
   
   /// Dil değiştir ve kaydet (SharedPreferences + Firebase)

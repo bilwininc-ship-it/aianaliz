@@ -85,6 +85,20 @@ class AuthProvider extends ChangeNotifier {
     }
   }
   
+  /// Kullanıcı modeli yüklendikten sonra dil senkronizasyonunu tetikle
+  Future<void> _syncUserLanguage(String uid) async {
+    try {
+      final userModel = await _userService.getUser(uid);
+      if (userModel != null && userModel.preferredLanguage.isNotEmpty) {
+        // LanguageProvider'ı güncelle (context olmadan erişilemez, global event bus kullanılabilir)
+        // Bu metod AuthProvider'dan LanguageProvider'a dil bilgisini iletmek için kullanılacak
+        debugPrint('🔄 Kullanıcı dil tercihi: ${userModel.preferredLanguage}');
+      }
+    } catch (e) {
+      debugPrint('⚠️ Dil senkronizasyonu hatası: $e');
+    }
+  }
+  
   void listenToUserModel(String uid) {
     _userService.getUserStream(uid).listen((userModel) {
       _userModel = userModel;
@@ -96,6 +110,7 @@ class AuthProvider extends ChangeNotifier {
     required String email,
     required String password,
     required String name,
+    String? selectedLanguage, // Yeni parametre: kayıt sırasında seçilen dil
   }) async {
     try {
       _isLoading = true;
@@ -136,6 +151,7 @@ class AuthProvider extends ChangeNotifier {
           ipAddress: ipAddress,
           deviceId: deviceId,
           isBanned: false,
+          preferredLanguage: selectedLanguage ?? 'tr', // Seçilen dili kaydet
         );
         
         await _userService.createOrUpdateUser(newUser);

@@ -7,7 +7,7 @@ import '../models/credit_transaction_model.dart';
 
 /// Ödüllü Reklam Servisi
 /// 
-/// Kullanıcılar 24 saatte bir ödüllü reklam izleyerek +1 kredi kazanabilir.
+/// Kullanıcılar 1 saatte bir ödüllü reklam izleyerek +1 kredi kazanabilir.
 /// Cooldown mekanizması ile spam önlenir.
 class RewardedAdService {
   static final RewardedAdService _instance = RewardedAdService._internal();
@@ -72,6 +72,7 @@ class RewardedAdService {
       return Duration.zero;
     }
   }
+  
   /// Ödüllü reklamı yükle
   Future<void> loadAd() async {
     if (_isLoading || _isAdLoaded) {
@@ -82,16 +83,16 @@ class RewardedAdService {
     _isLoading = true;
 
     try {
-      // Test Ad Unit ID (geliştirme için)
-      String adUnitId = 'ca-app-pub-3940256099942544/5224354917';
+      // ✅ CANLI REKLAM ID
+      String adUnitId = 'ca-app-pub-6066935997419400/8249485401';
       
-      // Remote Config'den gerçek ID al (production'da)
+      // Remote Config'den gerçek ID al (production'da override edilebilir)
       final remoteAdUnit = _remoteConfig.admobRewardedAdUnit;
       if (remoteAdUnit.isNotEmpty && remoteAdUnit != 'ca-app-pub-3940256099942544~3347511713') {
         adUnitId = remoteAdUnit;
-        debugPrint('✅ Remote Config Ad Unit kullanılıyor');
+        debugPrint('✅ Remote Config Ad Unit kullanılıyor: $adUnitId');
       } else {
-        debugPrint('🔧 Test Ad Unit kullanılıyor');
+        debugPrint('✅ Canlı Rewarded Ad Unit kullanılıyor: $adUnitId');
       }
 
       await RewardedAd.load(

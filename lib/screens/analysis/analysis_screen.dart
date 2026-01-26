@@ -1,13 +1,11 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:firebase_database/firebase_database.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../../services/gemini_service.dart';
 import '../../services/football_api_service.dart';
 import '../../services/match_pool_service.dart';
-import '../../services/rating_service.dart';
 import '../../l10n/app_localizations.dart';
 import '../../providers/language_provider.dart';
 
@@ -29,10 +27,9 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
   final GeminiService _geminiService = GeminiService();
   final FootballApiService _footballApi = FootballApiService();
   final MatchPoolService _matchPool = MatchPoolService();
-  final RatingService _ratingService = RatingService();
 
   bool _isAnalyzing = true;
-  String _statusMessage = 'Görsel analiz ediliyor...';
+  String _statusMessage = '';
   List<Map<String, dynamic>> _matches = [];
   List<Map<String, dynamic>> _analysisResults = [];
   String? _errorMessage;
@@ -49,23 +46,24 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
   }
 
   Future<void> _loadExistingAnalysis() async {
+    final loc = AppLocalizations.of(context)!;
     try {
       setState(() {
-        _statusMessage = 'Analiz yükleniyor...';
+        _statusMessage = loc.t('loading_analysis');
       });
 
       final database = FirebaseDatabase.instance;
       final snapshot = await database.ref('bulletins/${widget.bulletinId}').get();
       
       if (!snapshot.exists) {
-        throw Exception('Analiz bulunamadı');
+        throw Exception(loc.t('analysis_not_found'));
       }
 
       final data = Map<String, dynamic>.from(snapshot.value as Map);
       final matchesRaw = data['matches'];
       
       if (matchesRaw == null) {
-        throw Exception('Bu analizde maç bilgisi bulunamadı');
+        throw Exception(loc.t('no_match_info'));
       }
 
       final List<Map<String, dynamic>> parsedMatches = [];
@@ -80,15 +78,15 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
       }
       
       if (parsedMatches.isEmpty) {
-        throw Exception('Maç bilgisi okunamadı');
+        throw Exception(loc.t('match_info_read_error'));
       }
 
-      print('✅ ${parsedMatches.length} maç yüklendi');
+      print('✅ ${parsedMatches.length} ${loc.t('matches_found')}');
 
       setState(() {
         _isAnalyzing = false;
         _analysisResults = parsedMatches;
-        _statusMessage = 'Analiz yüklendi';
+        _statusMessage = loc.t('analysis_loaded');
       });
 
     } catch (e) {
@@ -119,20 +117,21 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
   }
 
   Future<void> _startAnalysis() async {
+    final loc = AppLocalizations.of(context)!;
     try {
-      await _updateStatus('analyzing', 'Görsel analiz ediliyor...');
+      await _updateStatus('analyzing', loc.t('analyzing_image'));
       final geminiResponse = await _geminiService.analyzeImage(widget.base64Image!);
       
       final jsonMatch = RegExp(r'\{[\s\S]*\}').firstMatch(geminiResponse);
       if (jsonMatch == null) {
-        throw Exception('Gemini\'den geçersiz JSON yanıtı');
+        throw Exception(loc.t('no_matches_in_image'));
       }
 
       final jsonData = jsonDecode(jsonMatch.group(0)!);
       final matches = (jsonData['matches'] as List?)?.cast<Map<String, dynamic>>() ?? [];
 
       if (matches.isEmpty) {
-        throw Exception('Görselde maç bulunamadı');
+        throw Exception(loc.t('no_matches_in_image'));
       }
 
       print('📋 Gemini\'den gelen maçlar:');
@@ -142,17 +141,17 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
 
       setState(() {
         _matches = matches;
-        _statusMessage = '${matches.length} maç bulundu. Analiz ediliyor...';
+        _statusMessage = '${matches.length} ${loc.t('matches_found')}';
       });
 
       await _analyzeAllMatchesInBatch(matches);
-      await _updateStatus('completed', 'Analiz tamamlandı!');
+      await _updateStatus('completed', loc.t('analysis_completed'));
       
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('✅ Analiz başarıyla tamamlandı! Geçmiş kuponlara yönlendiriliyorsunuz...'),
-            duration: Duration(seconds: 2),
+          SnackBar(
+            content: Text(loc.t('bulletin_uploaded_successfully')),
+            duration: const Duration(seconds: 2),
             backgroundColor: Colors.green,
           ),
         );
@@ -166,7 +165,7 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
 
     } catch (e) {
       print('❌ Analiz hatası: $e');
-      await _updateStatus('failed', 'Analiz başarısız');
+      await _updateStatus('failed', loc.t('analysis_failed'));
       
       setState(() {
         _isAnalyzing = false;
@@ -176,9 +175,10 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
   }
 
   Future<void> _analyzeAllMatchesInBatch(List<Map<String, dynamic>> matches) async {
+    final loc = AppLocalizations.of(context)!;
     try {
       setState(() {
-        _statusMessage = '🔥 Firebase havuzundan veriler alınıyor...';
+        _statusMessage = loc.t('fetching_from_firebase');
       });
 
       List<Map<String, dynamic>> matchesWithData = [];
@@ -192,7 +192,7 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
         final userPrediction = match['userPrediction'] ?? '?';
 
         setState(() {
-          _statusMessage = 'Maç ${i + 1}/${matches.length}: $homeTeam vs $awayTeam';
+          _statusMessage = '${loc.t('match_analysis_detail')} ${i + 1}/${matches.length}: $homeTeam vs $awayTeam';
         });
 
         final poolMatch = await _matchPool.findMatchInPool(homeTeam, awayTeam);
@@ -208,7 +208,7 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
             print('📊 Stats yoksa API\'den çekiliyor: ${poolMatch.fixtureId}');
             
             setState(() {
-              _statusMessage = 'İstatistikler alınıyor: $homeTeam vs $awayTeam';
+              _statusMessage = '${loc.t('fetching_stats')}: $homeTeam vs $awayTeam';
             });
             
             await Future.delayed(const Duration(milliseconds: 800));
@@ -249,10 +249,10 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
           print('✅ Maç ${i + 1}: Firebase Pool - ${poolMatch.homeTeam} vs ${poolMatch.awayTeam}');
           
         } else {
-          print('⚠ Maç ${i + 1}: Havuzda yok, Football API kullanılıyor...');
+          print('⚠ Maç ${i + 1}: ${loc.t('fetching_from_pool')}, ${loc.t('football_api_source')}...');
           
           setState(() {
-            _statusMessage = 'Football API: $homeTeam vs $awayTeam';
+            _statusMessage = '${loc.t('football_api_source')}: $homeTeam vs $awayTeam';
           });
           
           final homeData = await _footballApi.searchAndGetTeamData(homeTeam);
@@ -819,71 +819,9 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
         backgroundColor: Theme.of(context).colorScheme.primary,
         foregroundColor: Colors.white,
         elevation: 0,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.star_outline),
-            tooltip: loc.t('rate_app'),
-            onPressed: _handleRatingRequest,
-          ),
-        ],
       ),
       body: _isAnalyzing ? _buildLoadingView() : _buildResultsView(),
     );
-  }
-  
-  Future<void> _handleRatingRequest() async {
-    try {
-      final user = FirebaseAuth.instance.currentUser;
-      
-      if (user == null) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('❌ Lütfen önce giriş yapın'),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
-        return;
-      }
-      
-      final hasRated = await _ratingService.hasRatedBefore(user.uid);
-      
-      if (hasRated) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('✅ Daha önce değerlendirme yaptınız, teşekkürler! 🌟'),
-              backgroundColor: Colors.blue,
-            ),
-          );
-        }
-        return;
-      }
-      
-      final success = await _ratingService.requestRating(user.uid);
-      
-      if (success && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('🎉 Teşekkürler! +2 bonus kredi hesabınıza eklendi! ⭐'),
-            backgroundColor: Colors.green,
-            duration: Duration(seconds: 3),
-          ),
-        );
-      }
-      
-    } catch (e) {
-      print('❌ Rating hatası: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('⚠️ Bir hata oluştu, lütfen daha sonra tekrar deneyin'),
-            backgroundColor: Colors.orange,
-          ),
-        );
-      }
-    }
   }
 
   Widget _buildLoadingView() {
@@ -1168,14 +1106,25 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
             // Yıldızlar + Confidence
             Row(
               children: [
-                ..._buildStars(confidence),
-                const SizedBox(width: 12),
-                Text(
-                  '%$confidence',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
+                Expanded(
+                  child: Row(
+                    children: [
+                      ..._buildStars(confidence),
+                      const SizedBox(width: 12),
+                      Flexible(
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text(
+                            '%$confidence',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
@@ -1431,23 +1380,28 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
               // Yıldızlar (küçük)
               ..._buildSmallStars(confidence),
               const SizedBox(width: 8),
-              // Confidence badge
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                decoration: BoxDecoration(
-                  color: _getConfidenceColor(confidence).withOpacity(0.15),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color: _getConfidenceColor(confidence),
-                    width: 1.5,
-                  ),
-                ),
-                child: Text(
-                  '%$confidence',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 13,
-                    color: _getConfidenceColor(confidence),
+              // Confidence badge with Flexible to prevent overflow
+              Flexible(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: _getConfidenceColor(confidence).withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: _getConfidenceColor(confidence),
+                        width: 1.5,
+                      ),
+                    ),
+                    child: Text(
+                      '%$confidence',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                        color: _getConfidenceColor(confidence),
+                      ),
+                    ),
                   ),
                 ),
               ),

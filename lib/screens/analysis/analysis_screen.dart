@@ -2,12 +2,10 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:go_router/go_router.dart';
-import 'package:provider/provider.dart';
 import '../../services/gemini_service.dart';
 import '../../services/football_api_service.dart';
 import '../../services/match_pool_service.dart';
 import '../../l10n/app_localizations.dart';
-import '../../providers/language_provider.dart';
 
 class AnalysisScreen extends StatefulWidget {
   final String bulletinId;
@@ -1270,18 +1268,6 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
     }
     
     // Hiçbiri değilse olduğu gibi döndür
-    return predictionKey;
-  }
-  String _getTranslatedPrediction(AppLocalizations loc, String predictionKey) {
-    // Eğer prediction key ise, çevirisini döndür
-    if (predictionKey.startsWith('pred_')) {
-      final translated = loc.t(predictionKey);
-      // Eğer çeviri bulunamazsa (key döndüyse), orijinal key'i döndür
-      if (translated == predictionKey) {
-        return predictionKey;
-      }
-      return translated;
-    }
     return predictionKey;
   }
 

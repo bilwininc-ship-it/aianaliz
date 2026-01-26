@@ -440,6 +440,13 @@ final Map<String, String> en = {
   'yearly': 'Yearly',
   'discount_26': '26% Off',
   'discount_35': '35% Off',
+  'per_month': '/month',
+  'per_credit': '/credit',
+  'price_loading': 'Loading prices...',
+  'price_unavailable': 'Price information unavailable',
+  'retry': 'Retry',
+  'loading_products': 'Loading products...',
+  'products_load_failed': 'Failed to load products. Please check your internet connection.',
 
   // Purchase messages
   'purchase_login_required': 'You must log in to make a purchase',

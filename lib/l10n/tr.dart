@@ -440,6 +440,13 @@ final Map<String, String> tr = {
   'yearly': 'Yıllık',
   'discount_26': '%26 İndirim',
   'discount_35': '%35 İndirim',
+  'per_month': '/ay',
+  'per_credit': '/kredi',
+  'price_loading': 'Fiyatlar yükleniyor...',
+  'price_unavailable': 'Fiyat bilgisi alınamadı',
+  'retry': 'Tekrar Dene',
+  'loading_products': 'Ürünler yükleniyor...',
+  'products_load_failed': 'Ürünler yüklenemedi. Lütfen internet bağlantınızı kontrol edin.',
 
   // Purchase messages
   'purchase_login_required': 'Satın alma için giriş yapmalısınız',

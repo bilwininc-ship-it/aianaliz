@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart' hide AuthProvider;
 import 'package:cloud_functions/cloud_functions.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/iap_service.dart';
+import '../../l10n/app_localizations.dart';
 
 class SubscriptionScreen extends StatefulWidget {
   const SubscriptionScreen({super.key});
@@ -31,7 +32,8 @@ class _SubscriptionScreenState extends State<SubscriptionScreen>
     final currentUser = FirebaseAuth.instance.currentUser;
     if (currentUser == null) {
       if (mounted) {
-        _showErrorDialog('Satın alma için giriş yapmalısınız');
+        final loc = AppLocalizations.of(context)!;
+        _showErrorDialog(loc.t('purchase_login_required'));
       }
       return;
     }
@@ -47,7 +49,8 @@ class _SubscriptionScreenState extends State<SubscriptionScreen>
     
     // Hata callback'i
     _iapService.onPurchaseError = (String error) {
-      _showErrorDialog('Satın alma hatası: $error');
+      final loc = AppLocalizations.of(context)!;
+      _showErrorDialog('${loc.t('purchase_error')} $error');
     };
     
     if (mounted) {
@@ -57,8 +60,9 @@ class _SubscriptionScreenState extends State<SubscriptionScreen>
     }
     
     if (!_isIapReady && mounted) {
+      final loc = AppLocalizations.of(context)!;
       _showErrorDialog(
-        'Satın alma servisi şu anda kullanılamıyor. Lütfen daha sonra tekrar deneyin.'
+        loc.t('purchase_service_unavailable')
       );
     }
   }

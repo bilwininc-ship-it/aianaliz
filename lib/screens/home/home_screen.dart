@@ -74,13 +74,14 @@ class _HomeScreenState extends State<HomeScreen> {
     };
 
     _rewardedAdService.onAdFailedToLoad = () {
+      final loc = AppLocalizations.of(context)!;
       if (mounted) {
         setState(() {
           _adLoading = false;
         });
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Reklam yüklenemedi. Lütfen tekrar deneyin.'),
+          SnackBar(
+            content: Text(loc.t('ad_failed_to_load')),
             backgroundColor: Colors.orange,
           ),
         );
@@ -88,12 +89,13 @@ class _HomeScreenState extends State<HomeScreen> {
     };
 
     _rewardedAdService.onRewardEarned = () {
+      final loc = AppLocalizations.of(context)!;
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('🎉 Tebrikler! Kredi hesabınıza eklendi'),
+          SnackBar(
+            content: Text(loc.t('ad_reward_earned')),
             backgroundColor: Colors.green,
-            duration: Duration(seconds: 3),
+            duration: const Duration(seconds: 3),
           ),
         );
         _checkAdAvailability();
@@ -117,10 +119,11 @@ class _HomeScreenState extends State<HomeScreen> {
   /// Ödüllü reklamı izle
   Future<void> _watchRewardedAd() async {
     final userId = firebase_auth.FirebaseAuth.instance.currentUser?.uid;
+    final loc = AppLocalizations.of(context)!;
     if (userId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Kullanıcı oturumu bulunamadı'),
+        SnackBar(
+          content: Text(loc.t('user_session_error')),
           backgroundColor: Colors.red,
         ),
       );
@@ -139,8 +142,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
   /// Cooldown zamanını formatla
   String _formatCooldown(Duration duration) {
+    final loc = AppLocalizations.of(context)!;
     if (duration.inSeconds <= 0) {
-      return 'Hazır!';
+      return loc.t('countdown_ready');
     }
     
     final hours = duration.inHours;
@@ -148,11 +152,11 @@ class _HomeScreenState extends State<HomeScreen> {
     final seconds = duration.inSeconds.remainder(60);
     
     if (hours > 0) {
-      return '$hours saat $minutes dakika';
+      return '$hours ${loc.t('countdown_hours')} $minutes ${loc.t('countdown_minutes')}';
     } else if (minutes > 0) {
-      return '$minutes dakika $seconds saniye';
+      return '$minutes ${loc.t('countdown_minutes')} $seconds ${loc.t('countdown_seconds')}';
     } else {
-      return '$seconds saniye';
+      return '$seconds ${loc.t('countdown_seconds')}';
     }
   }
 
@@ -270,17 +274,17 @@ class _HomeScreenState extends State<HomeScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
-                      children: const [
-                        Icon(
+                      children: [
+                        const Icon(
                           Icons.play_circle_filled,
                           color: Colors.white,
                           size: 32,
                         ),
-                        SizedBox(width: 12),
+                        const SizedBox(width: 12),
                         Expanded(
                           child: Text(
-                            'Ücretsiz Kredi Kazan! 🎁',
-                            style: TextStyle(
+                            loc.t('free_credit_earn'),
+                            style: const TextStyle(
                               color: Colors.white,
                               fontSize: 20,
                               fontWeight: FontWeight.bold,
@@ -290,9 +294,9 @@ class _HomeScreenState extends State<HomeScreen> {
                       ],
                     ),
                     const SizedBox(height: 12),
-                    const Text(
-                      'Kısa bir reklam izle, kredi kazan!\nHer saatte bir yeni reklam izleyebilirsin.',
-                      style: TextStyle(
+                    Text(
+                      loc.t('watch_short_ad_earn'),
+                      style: const TextStyle(
                         color: Colors.white,
                         fontSize: 14,
                         height: 1.4,
@@ -321,7 +325,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             const SizedBox(width: 8),
                             Expanded(
                               child: Text(
-                                'Sonraki reklam: ${_formatCooldown(_remainingCooldown)}',
+                                '${loc.t('next_ad_in')} ${_formatCooldown(_remainingCooldown)}',
                                 style: const TextStyle(
                                   color: Colors.white,
                                   fontSize: 14,
@@ -360,10 +364,10 @@ class _HomeScreenState extends State<HomeScreen> {
                               ),
                         label: Text(
                           _adLoading
-                              ? 'Yükleniyor...'
+                              ? loc.t('ad_loading')
                               : _canWatchAd
-                                  ? 'Reklam İzle ve Kredi Kazan'
-                                  : 'Bekleme Süresinde',
+                                  ? loc.t('watch_ad_button')
+                                  : loc.t('ad_wait_period'),
                           style: const TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,

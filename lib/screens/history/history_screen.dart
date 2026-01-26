@@ -7,6 +7,7 @@ import '../../services/rewarded_ad_service.dart';
 import '../../services/interstitial_ad_service.dart';
 import '../../widgets/common/countdown_timer_widget.dart';
 import '../../models/bulletin_model.dart';
+import '../../l10n/app_localizations.dart';
 
 class HistoryScreen extends StatefulWidget {
   const HistoryScreen({super.key});
@@ -66,7 +67,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
     
     // ✅ PREMIUM KORUMASI: Premium üyeyse reklam yükleme
     if (authProvider.isPremium) {
-      debugPrint('🎖️ Premium üye - Interstitial ad yüklenmiyor');
+      debugPrint('🎯️ Premium üye - Interstitial ad yüklenmiyor');
       return;
     }
 
@@ -87,21 +88,23 @@ class _HistoryScreenState extends State<HistoryScreen> {
     };
 
     _rewardedAdService.onAdFailedToLoad = () {
+      final loc = AppLocalizations.of(context)!;
       if (mounted) {
         setState(() {
           _adLoading = false;
         });
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Reklam yüklenemedi')),
+          SnackBar(content: Text(loc.t('ad_load_failed'))),
         );
       }
     };
 
     _rewardedAdService.onRewardEarned = () {
+      final loc = AppLocalizations.of(context)!;
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('🎉 Tebrikler! 1 kredi kazandınız'),
+          SnackBar(
+            content: Text(loc.t('ad_earned_credit')),
             backgroundColor: Colors.green,
           ),
         );
@@ -129,10 +132,11 @@ class _HistoryScreenState extends State<HistoryScreen> {
   Future<void> _watchRewardedAd() async {
     final authProvider = context.read<AuthProvider>();
     final userId = authProvider.user?.uid;
+    final loc = AppLocalizations.of(context)!;
     
     if (userId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Kullanıcı girişi yapılmamış')),
+        SnackBar(content: Text(loc.t('user_not_logged_in'))),
       );
       return;
     }
@@ -153,12 +157,12 @@ class _HistoryScreenState extends State<HistoryScreen> {
     
     // ✅ PREMIUM KORUMASI: Premium üyeyse reklam gösterme
     if (authProvider.isPremium) {
-      debugPrint('🎖️ Premium üye - Reklam atlandı');
+      debugPrint('🎯️ Premium üye - Reklam atlandı');
       context.push('/analysis/${bulletin.id}');
       return;
     }
 
-    // ⚡ FAIL-SAFE: Reklam yüklenmemişse veya gösteremezse, kullanıcıyı bekletme
+    // ⚡ FAIL-SAFE: Reklam yüklenmeмиşse veya gösteremezse, kullanıcıyı bekletme
     try {
       debugPrint('🎬 Interstitial ad gösteriliyor...');
       
@@ -193,10 +197,11 @@ class _HistoryScreenState extends State<HistoryScreen> {
     final authProvider = context.watch<AuthProvider>();
     final bulletinProvider = context.watch<BulletinProvider>();
     final userModel = authProvider.userModel;
+    final loc = AppLocalizations.of(context)!;
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Geçmiş Analizler'),
+        title: Text(loc.t('past_analyses')),
         actions: [
           IconButton(
             icon: const Icon(Icons.person_outline),
@@ -249,8 +254,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
                         Expanded(
                           child: Text(
                             authProvider.isPremium 
-                                ? 'Premium Üye'
-                                : 'Analizlerim',
+                                ? loc.t('premium_member')
+                                : loc.t('my_analyses_title'),
                             style: const TextStyle(
                               color: Colors.white,
                               fontSize: 20,
@@ -262,7 +267,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      userModel?.displayName ?? userModel?.email ?? 'Kullanıcı',
+                      userModel?.displayName ?? userModel?.email ?? loc.t('user'),
                       style: const TextStyle(
                         color: Colors.white70,
                         fontSize: 16,
@@ -274,7 +279,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                         const Icon(Icons.analytics, color: Colors.white70, size: 20),
                         const SizedBox(width: 8),
                         Text(
-                          'Toplam ${userModel?.totalAnalysisCount ?? 0} analiz',
+                          '${loc.t('total_analysis_count')} ${userModel?.totalAnalysisCount ?? 0}',
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: 14,
@@ -283,7 +288,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                         const Spacer(),
                         if (!authProvider.isPremium)
                           Text(
-                            '${authProvider.credits} kredi',
+                            '${authProvider.credits} ${loc.t('credit')}',
                             style: const TextStyle(
                               color: Colors.white,
                               fontSize: 14,
@@ -319,13 +324,13 @@ class _HistoryScreenState extends State<HistoryScreen> {
                   child: Column(
                     children: [
                       Row(
-                        children: const [
-                          Icon(Icons.play_circle_filled, color: Colors.white, size: 32),
-                          SizedBox(width: 12),
+                        children: [
+                          const Icon(Icons.play_circle_filled, color: Colors.white, size: 32),
+                          const SizedBox(width: 12),
                           Expanded(
                             child: Text(
-                              'Ücretsiz Kredi Kazan!',
-                              style: TextStyle(
+                              loc.t('free_credit_earn'),
+                              style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 20,
                                 fontWeight: FontWeight.bold,
@@ -335,9 +340,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
                         ],
                       ),
                       const SizedBox(height: 12),
-                      const Text(
-                        'Kısa bir reklam izleyerek 1 kredi kazan',
-                        style: TextStyle(color: Colors.white, fontSize: 14),
+                      Text(
+                        loc.t('ad_watch_earn_credit'),
+                        style: const TextStyle(color: Colors.white, fontSize: 14),
                         textAlign: TextAlign.center,
                       ),
                       const SizedBox(height: 16),
@@ -363,9 +368,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
                                   ),
                                 )
                               : _canWatchAd
-                                  ? const Text(
-                                      'Reklam İzle',
-                                      style: TextStyle(
+                                  ? Text(
+                                      loc.t('ad_watch_simple'),
+                                      style: const TextStyle(
                                         fontWeight: FontWeight.bold,
                                         fontSize: 16,
                                       ),
@@ -400,7 +405,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Geçmiş Analizler',
+                      loc.t('past_analyses'),
                       style: Theme.of(context).textTheme.titleLarge?.copyWith(
                             fontWeight: FontWeight.bold,
                           ),
@@ -446,15 +451,15 @@ class _HistoryScreenState extends State<HistoryScreen> {
                             children: [
                               const Icon(Icons.inbox, size: 64, color: Colors.grey),
                               const SizedBox(height: 16),
-                              const Text(
-                                'Henüz analiz yapmadınız',
-                                style: TextStyle(color: Colors.grey, fontSize: 16),
+                              Text(
+                                loc.t('no_analysis_yet'),
+                                style: const TextStyle(color: Colors.grey, fontSize: 16),
                               ),
                               const SizedBox(height: 24),
                               ElevatedButton.icon(
                                 onPressed: () => context.push('/upload'),
                                 icon: const Icon(Icons.add),
-                                label: const Text('İlk Analizinizi Yapın'),
+                                label: Text(loc.t('first_analysis')),
                               ),
                             ],
                           ),
@@ -499,10 +504,10 @@ class _HistoryScreenState extends State<HistoryScreen> {
                             size: 32,
                           ),
                           const SizedBox(width: 12),
-                          const Expanded(
+                          Expanded(
                             child: Text(
-                              'Premium\'a Geç',
-                              style: TextStyle(
+                              loc.t('upgrade_premium_title'),
+                              style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 22,
                                 fontWeight: FontWeight.bold,
@@ -512,11 +517,11 @@ class _HistoryScreenState extends State<HistoryScreen> {
                         ],
                       ),
                       const SizedBox(height: 12),
-                      const Text(
-                        '✨ Sınırsız analiz\n'
-                        '✨ Reklamsız deneyim\n'
-                        '✨ Öncelikli destek',
-                        style: TextStyle(
+                      Text(
+                        '${loc.t('premium_benefit_1')}\n'
+                        '${loc.t('premium_benefit_2')}\n'
+                        '${loc.t('premium_benefit_3')}',
+                        style: const TextStyle(
                           color: Colors.white,
                           fontSize: 15,
                           height: 1.5,
@@ -535,9 +540,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
                               borderRadius: BorderRadius.circular(10),
                             ),
                           ),
-                          child: const Text(
-                            'Premium Paketleri Gör',
-                            style: TextStyle(
+                          child: Text(
+                            loc.t('view_premium_packages_btn'),
+                            style: const TextStyle(
                               fontWeight: FontWeight.bold,
                               fontSize: 16,
                             ),
@@ -553,7 +558,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                 child: Column(
                   children: [
                     Text(
-                      'AI Spor Pro ile maç tahminlerinizi\nprofesyonel analiz edin',
+                      loc.t('footer_message'),
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         color: Colors.grey[600],
@@ -562,7 +567,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'Powered by Bilwin.inc',
+                      loc.t('powered_by'),
                       style: TextStyle(
                         color: Colors.grey[400],
                         fontSize: 12,
@@ -579,6 +584,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
   }
 
   Widget _buildBulletinCard(BulletinModel bulletin) {
+    final loc = AppLocalizations.of(context)!;
     Color statusColor;
     IconData statusIcon;
     String statusText;
@@ -587,22 +593,22 @@ class _HistoryScreenState extends State<HistoryScreen> {
       case 'completed':
         statusColor = Colors.green;
         statusIcon = Icons.check_circle;
-        statusText = 'Tamamlandı';
+        statusText = loc.t('status_completed');
         break;
       case 'analyzing':
         statusColor = Colors.blue;
         statusIcon = Icons.pending;
-        statusText = 'Analiz Ediliyor';
+        statusText = loc.t('status_analyzing');
         break;
       case 'failed':
         statusColor = Colors.red;
         statusIcon = Icons.error;
-        statusText = 'Başarısız';
+        statusText = loc.t('status_failed');
         break;
       default:
         statusColor = Colors.orange;
         statusIcon = Icons.schedule;
-        statusText = 'Bekliyor';
+        statusText = loc.t('status_pending');
     }
 
     return Card(
@@ -649,7 +655,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
               if (bulletin.analyzedAt != null) ...[
                 const SizedBox(height: 4),
                 Text(
-                  'Analiz: ${_formatDate(bulletin.analyzedAt!)}',
+                  '${loc.t('analyzed_at')} ${_formatDate(bulletin.analyzedAt!)}',
                   style: TextStyle(
                     color: Colors.grey[500],
                     fontSize: 12,
@@ -664,17 +670,18 @@ class _HistoryScreenState extends State<HistoryScreen> {
   }
 
   String _formatDate(DateTime date) {
+    final loc = AppLocalizations.of(context)!;
     final now = DateTime.now();
     final difference = now.difference(date);
 
     if (difference.inMinutes < 1) {
-      return 'Az önce';
+      return loc.t('just_now');
     } else if (difference.inHours < 1) {
-      return '${difference.inMinutes} dakika önce';
+      return '${difference.inMinutes} ${loc.t('minutes_ago').replaceAll('{count}', '')}';
     } else if (difference.inHours < 24) {
-      return '${difference.inHours} saat önce';
+      return '${difference.inHours} ${loc.t('hours_ago').replaceAll('{count}', '')}';
     } else if (difference.inDays < 7) {
-      return '${difference.inDays} gün önce';
+      return '${difference.inDays} ${loc.t('days_ago').replaceAll('{count}', '')}';
     } else {
       return '${date.day}/${date.month}/${date.year}';
     }

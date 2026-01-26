@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:go_router/go_router.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/bulletin_provider.dart';
+import '../../l10n/app_localizations.dart';
 
 class UploadScreen extends StatefulWidget {
   const UploadScreen({super.key});
@@ -21,6 +22,7 @@ class _UploadScreenState extends State<UploadScreen> {
   bool _isUploading = false;
 
   Future<void> _pickImage(ImageSource source) async {
+    final loc = AppLocalizations.of(context)!;
     try {
       final XFile? pickedFile = await _picker.pickImage(
         source: source,
@@ -40,7 +42,7 @@ class _UploadScreenState extends State<UploadScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Görsel seçilirken hata: $e'),
+            content: Text(loc.t('image_selection_error')),
             backgroundColor: Colors.red,
           ),
         );
@@ -49,9 +51,10 @@ class _UploadScreenState extends State<UploadScreen> {
   }
 
   Future<void> _uploadImage() async {
+    final loc = AppLocalizations.of(context)!;
     if (_imageBytes == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Lütfen bir görsel seçin')),
+        SnackBar(content: Text(loc.t('please_select_image_first'))),
       );
       return;
     }
@@ -64,7 +67,7 @@ class _UploadScreenState extends State<UploadScreen> {
       final userId = authProvider.user?.uid;
 
       if (userId == null) {
-        throw Exception('Kullanıcı girişi yapılmamış');
+        throw Exception(loc.t('user_not_logged_in'));
       }
 
       // Base64 encode (görsel kaydedilmeyecek, sadece analiz için kullanılacak)
@@ -80,12 +83,12 @@ class _UploadScreenState extends State<UploadScreen> {
         final creditUsed = await authProvider.useCredit(analysisId: bulletinId);
         
         if (!creditUsed) {
-          throw Exception('Kredi kullanılamadı. Yetersiz kredi veya hata oluştu.');
+          throw Exception(loc.t('credit_usage_failed'));
         }
 
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('✅ Bülten başarıyla yüklendi! Analiz başlatılıyor...'),
+          SnackBar(
+            content: Text(loc.t('bulletin_uploaded_successfully')),
             backgroundColor: Colors.green,
           ),
         );
@@ -98,7 +101,7 @@ class _UploadScreenState extends State<UploadScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Yükleme hatası: $e'),
+            content: Text('${loc.t('upload_error')}: $e'),
             backgroundColor: Colors.red,
           ),
         );
@@ -112,9 +115,10 @@ class _UploadScreenState extends State<UploadScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context)!;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Bülten Yükle'),
+        title: Text(loc.t('upload_bulletin_title')),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(24),
@@ -135,17 +139,17 @@ class _UploadScreenState extends State<UploadScreen> {
                         ),
                         const SizedBox(width: 8),
                         Text(
-                          'Nasıl Çalışır?',
+                          loc.t('how_it_works_title'),
                           style: Theme.of(context).textTheme.titleMedium,
                         ),
                       ],
                     ),
                     const SizedBox(height: 12),
-                    const Text(
-                      '1. Hazırladığınız spor bülteninin fotoğrafını çekin veya galeriden seçin\n'
-                      '2. Yükle butonuna tıklayın\n'
-                      '3. AI analizi ile tahminleriniz değerlendirilecek',
-                      style: TextStyle(height: 1.5),
+                    Text(
+                      '1. ${loc.t('upload_step_1')}\n'
+                      '2. ${loc.t('upload_step_2')}\n'
+                      '3. ${loc.t('upload_step_3')}',
+                      style: const TextStyle(height: 1.5),
                     ),
                   ],
                 ),
@@ -193,7 +197,7 @@ class _UploadScreenState extends State<UploadScreen> {
                     ),
                     const SizedBox(height: 16),
                     Text(
-                      'Henüz görsel seçilmedi',
+                      loc.t('no_image_selected_message'),
                       style: TextStyle(
                         color: Colors.grey[600],
                         fontSize: 16,
@@ -213,7 +217,7 @@ class _UploadScreenState extends State<UploadScreen> {
                         ? null
                         : () => _pickImage(ImageSource.gallery),
                     icon: const Icon(Icons.photo_library),
-                    label: const Text('Galeriden Seç'),
+                    label: Text(loc.t('gallery_select')),
                     style: OutlinedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 16),
                     ),
@@ -226,7 +230,7 @@ class _UploadScreenState extends State<UploadScreen> {
                         ? null
                         : () => _pickImage(ImageSource.camera),
                     icon: const Icon(Icons.camera_alt),
-                    label: const Text('Fotoğraf Çek'),
+                    label: Text(loc.t('camera_open')),
                     style: OutlinedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 16),
                     ),
@@ -250,7 +254,7 @@ class _UploadScreenState extends State<UploadScreen> {
                       ),
                     )
                   : const Icon(Icons.cloud_upload),
-              label: Text(_isUploading ? 'Yükleniyor...' : 'Yükle ve Analiz Et'),
+              label: Text(_isUploading ? loc.t('uploading') : loc.t('upload_analyze')),
               style: ElevatedButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 20),
               ),

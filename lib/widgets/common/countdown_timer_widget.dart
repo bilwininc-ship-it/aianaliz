@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import '../../l10n/app_localizations.dart';
 
 /// Canlı Geri Sayım Timer Widget
 /// 
@@ -56,22 +57,26 @@ class _CountdownTimerWidgetState extends State<CountdownTimerWidget> {
     });
   }
 
-  String _formatDuration(Duration duration) {
+  String _formatDuration(Duration duration, BuildContext context) {
+    final loc = AppLocalizations.of(context)!;
+    
     if (duration.inHours > 0) {
       final hours = duration.inHours;
       final minutes = duration.inMinutes.remainder(60);
-      return '$hours saat $minutes dakika';
+      return '$hours ${loc.t('countdown_hours')} $minutes ${loc.t('countdown_minutes')}';
     } else if (duration.inMinutes > 0) {
       final minutes = duration.inMinutes;
       final seconds = duration.inSeconds.remainder(60);
-      return '$minutes dakika $seconds saniye';
+      return '$minutes ${loc.t('countdown_minutes')} $seconds ${loc.t('countdown_seconds')}';
     } else {
-      return '${duration.inSeconds} saniye';
+      return '${duration.inSeconds} ${loc.t('countdown_seconds')}';
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context)!;
+    
     if (_remainingTime.inSeconds <= 0) {
       return Row(
         mainAxisSize: MainAxisSize.min,
@@ -85,7 +90,7 @@ class _CountdownTimerWidgetState extends State<CountdownTimerWidget> {
             const SizedBox(width: 4),
           ],
           Text(
-            'Hazır!',
+            loc.t('countdown_ready'),
             style: widget.textStyle ?? const TextStyle(
               color: Colors.green,
               fontWeight: FontWeight.bold,
@@ -107,7 +112,7 @@ class _CountdownTimerWidgetState extends State<CountdownTimerWidget> {
           const SizedBox(width: 4),
         ],
         Text(
-          _formatDuration(_remainingTime),
+          _formatDuration(_remainingTime, context),
           style: widget.textStyle ?? const TextStyle(
             color: Colors.orange,
             fontWeight: FontWeight.w600,

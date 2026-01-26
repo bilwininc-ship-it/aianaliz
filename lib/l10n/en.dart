@@ -374,6 +374,12 @@ final Map<String, String> en = {
   'hours_minutes': 'hours {minutes} minutes',
   'minutes_seconds': 'minutes {seconds} seconds',
   'seconds': 'seconds',
+  'countdown_ready': 'Ready!',
+  'countdown_hours': 'hours',
+  'countdown_minutes': 'minutes',
+  'countdown_seconds': 'seconds',
+  'user_session_error': 'User session not found',
+  'ad_load_failed': 'Failed to load ad',
 
   // Image Upload Screen
   'image_selection_failed': 'Error selecting image',

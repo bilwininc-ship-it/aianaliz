@@ -374,6 +374,12 @@ final Map<String, String> tr = {
   'hours_minutes': 'saat {minutes} dakika',
   'minutes_seconds': 'dakika {seconds} saniye',
   'seconds': 'saniye',
+  'countdown_ready': 'Hazır!',
+  'countdown_hours': 'saat',
+  'countdown_minutes': 'dakika',
+  'countdown_seconds': 'saniye',
+  'user_session_error': 'Kullanıcı oturumu bulunamadı',
+  'ad_load_failed': 'Reklam yüklenemedi',
 
   // Image Upload Screen
   'image_selection_failed': 'Görsel seçilirken hata',

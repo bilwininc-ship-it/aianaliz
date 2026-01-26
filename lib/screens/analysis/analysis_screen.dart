@@ -550,15 +550,15 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
     String reasoning;
 
     if (avgGoals > 3.0) {
-      prediction = 'Üst 2.5';
+      prediction = 'pred_over_25';
       confidence = (65 + ((avgGoals - 3.0) * 10).clamp(0, 25)).toInt();
       reasoning = 'reasoning_high_goals';
     } else if (avgGoals < 2.0) {
-      prediction = 'Alt 2.5';
+      prediction = 'pred_under_25';
       confidence = (65 + ((2.0 - avgGoals) * 10).clamp(0, 25)).toInt();
       reasoning = 'reasoning_low_goals';
     } else {
-      prediction = 'Üst 2.5';
+      prediction = 'pred_over_25';
       confidence = 50;
       reasoning = 'reasoning_medium_goals';
     }
@@ -588,15 +588,15 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
     String reasoning;
 
     if (bothTeamsScore && bothTeamsConcede) {
-      prediction = 'Evet (KG Var)';
+      prediction = 'pred_btts_yes';
       confidence = (70 + h2hBothScoredRate * 0.2).toInt().clamp(55, 90);
       reasoning = 'reasoning_both_teams_score';
     } else if (!bothTeamsScore || homeAvgGoalsFor < 0.8 || awayAvgGoalsFor < 0.8) {
-      prediction = 'Hayır (KG Yok)';
+      prediction = 'pred_btts_no';
       confidence = 65;
       reasoning = 'reasoning_team_struggles';
     } else {
-      prediction = 'Evet (KG Var)';
+      prediction = 'pred_btts_yes';
       confidence = 55;
       reasoning = 'reasoning_medium_btts';
     }
@@ -622,23 +622,23 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
     String reasoning;
 
     if (goalDiff > 1.2 && winRateDiff > 0.25) {
-      prediction = 'Ev Sahibi -1.5';
+      prediction = 'pred_home_handicap_15';
       confidence = (65 + (goalDiff * 10).clamp(0, 25)).toInt();
       reasoning = 'reasoning_home_clear_advantage';
     } else if (goalDiff < -1.2 && winRateDiff < -0.25) {
-      prediction = 'Deplasman -1.5';
+      prediction = 'pred_away_handicap_15';
       confidence = (65 + (goalDiff.abs() * 10).clamp(0, 25)).toInt();
       reasoning = 'reasoning_away_clear_advantage';
     } else if (goalDiff > 0.5) {
-      prediction = 'Ev Sahibi -0.5';
+      prediction = 'pred_home_handicap_05';
       confidence = 60;
       reasoning = 'reasoning_home_slight_advantage';
     } else if (goalDiff < -0.5) {
-      prediction = 'Deplasman -0.5';
+      prediction = 'pred_away_handicap_05';
       confidence = 60;
       reasoning = 'reasoning_away_slight_advantage';
     } else {
-      prediction = 'Handikap 0';
+      prediction = 'pred_handicap_0';
       confidence = 50;
       reasoning = 'reasoning_balanced_forces';
     }
@@ -664,15 +664,15 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
     String reasoning;
 
     if (firstHalfHomeGoals > firstHalfAwayGoals + 0.3 && homeWinRate > 0.5) {
-      prediction = '1 (Ev Sahibi)';
+      prediction = 'pred_first_half_home';
       confidence = 60;
       reasoning = 'reasoning_home_first_half_dominant';
     } else if (firstHalfAwayGoals > firstHalfHomeGoals + 0.3 && awayWinRate > 0.5) {
-      prediction = '2 (Deplasman)';
+      prediction = 'pred_first_half_away';
       confidence = 60;
       reasoning = 'reasoning_away_first_half_dominant';
     } else {
-      prediction = 'X (Beraberlik)';
+      prediction = 'pred_first_half_draw';
       confidence = 55;
       reasoning = 'reasoning_first_half_balanced';
     }
@@ -692,19 +692,19 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
     String reasoning;
 
     if (totalGoalsExpected < 1.5) {
-      prediction = '0-1 Gol';
+      prediction = 'pred_goals_0_1';
       confidence = 65;
       reasoning = 'reasoning_very_low_goals';
     } else if (totalGoalsExpected < 2.5) {
-      prediction = '2-3 Gol';
+      prediction = 'pred_goals_2_3';
       confidence = 70;
       reasoning = 'reasoning_normal_goals';
     } else if (totalGoalsExpected < 3.5) {
-      prediction = '3-4 Gol';
+      prediction = 'pred_goals_3_4';
       confidence = 65;
       reasoning = 'reasoning_high_goals_expected';
     } else {
-      prediction = '4+ Gol';
+      prediction = 'pred_goals_4_plus';
       confidence = 60;
       reasoning = 'reasoning_very_high_goals';
     }
@@ -728,7 +728,7 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
   }) {
     if (homeGamesPlayed == 0 || awayGamesPlayed == 0) {
       return {
-        'prediction': '1X',
+        'prediction': 'pred_double_1x',
         'confidence': 55,
         'reasoning': 'reasoning_home_advantage_insufficient',
       };
@@ -742,23 +742,23 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
     String reasoning;
 
     if (homeNotLoseRate > 75) {
-      prediction = '1X';
+      prediction = 'pred_double_1x';
       confidence = 75;
       reasoning = 'reasoning_home_low_loss_rate';
     } else if (awayNotLoseRate > 75) {
-      prediction = 'X2';
+      prediction = 'pred_double_x2';
       confidence = 75;
       reasoning = 'reasoning_away_low_loss_rate';
     } else if (homeNotLoseRate > awayNotLoseRate + 10) {
-      prediction = '1X';
+      prediction = 'pred_double_1x';
       confidence = 70;
       reasoning = 'reasoning_home_safer';
     } else if (awayNotLoseRate > homeNotLoseRate + 10) {
-      prediction = 'X2';
+      prediction = 'pred_double_x2';
       confidence = 70;
       reasoning = 'reasoning_away_safer';
     } else {
-      prediction = '12';
+      prediction = 'pred_double_12';
       confidence = 65;
       reasoning = 'reasoning_clear_winner';
     }
@@ -1093,7 +1093,7 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
             
             // Tahmin
             Text(
-              prediction,
+              _getTranslatedPrediction(loc, prediction),
               style: const TextStyle(
                 color: Colors.white,
                 fontSize: 28,
@@ -1230,6 +1230,59 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
       return friendly;
     }
     return reasoningKey;
+  }
+
+  /// Prediction key'lerini çeviriye dönüştür
+  /// Hem yeni format (pred_over_25) hem eski format (Üst 2.5) desteklenir
+  String _getTranslatedPrediction(AppLocalizations loc, String predictionKey) {
+    // Eğer prediction key formatındaysa, çevir
+    if (predictionKey.startsWith('pred_')) {
+      return loc.t(predictionKey);
+    }
+    
+    // Eski format için backward compatibility
+    // Firebase'de hala eski Türkçe kayıtlar varsa onları da çevir
+    final oldToNewKeyMap = {
+      'Üst 2.5': 'pred_over_25',
+      'Alt 2.5': 'pred_under_25',
+      'Evet (KG Var)': 'pred_btts_yes',
+      'Hayır (KG Yok)': 'pred_btts_no',
+      'Ev Sahibi -1.5': 'pred_home_handicap_15',
+      'Deplasman -1.5': 'pred_away_handicap_15',
+      'Ev Sahibi -0.5': 'pred_home_handicap_05',
+      'Deplasman -0.5': 'pred_away_handicap_05',
+      'Handikap 0': 'pred_handicap_0',
+      '1 (Ev Sahibi)': 'pred_first_half_home',
+      '2 (Deplasman)': 'pred_first_half_away',
+      'X (Beraberlik)': 'pred_first_half_draw',
+      '0-1 Gol': 'pred_goals_0_1',
+      '2-3 Gol': 'pred_goals_2_3',
+      '3-4 Gol': 'pred_goals_3_4',
+      '4+ Gol': 'pred_goals_4_plus',
+      '1X': 'pred_double_1x',
+      'X2': 'pred_double_x2',
+      '12': 'pred_double_12',
+    };
+    
+    // Eski format varsa key'e çevir ve sonra translate et
+    if (oldToNewKeyMap.containsKey(predictionKey)) {
+      return loc.t(oldToNewKeyMap[predictionKey]!);
+    }
+    
+    // Hiçbiri değilse olduğu gibi döndür
+    return predictionKey;
+  }
+  String _getTranslatedPrediction(AppLocalizations loc, String predictionKey) {
+    // Eğer prediction key ise, çevirisini döndür
+    if (predictionKey.startsWith('pred_')) {
+      final translated = loc.t(predictionKey);
+      // Eğer çeviri bulunamazsa (key döndüyse), orijinal key'i döndür
+      if (translated == predictionKey) {
+        return predictionKey;
+      }
+      return translated;
+    }
+    return predictionKey;
   }
 
   Widget _buildMatchCard(AppLocalizations loc, Map<String, dynamic> result) {
@@ -1412,7 +1465,7 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
           
           // Tahmin
           Text(
-            prediction,
+            _getTranslatedPrediction(loc, prediction),
             style: TextStyle(
               fontWeight: FontWeight.bold,
               fontSize: 16,

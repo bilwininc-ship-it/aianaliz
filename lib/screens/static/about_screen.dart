@@ -29,7 +29,7 @@ class AboutScreen extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              'Versiyon 1.0.0',
+              'Versiyon 1.1.1',
               style: TextStyle(
                 color: Colors.grey[600],
                 fontSize: 14,

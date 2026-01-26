@@ -3,10 +3,13 @@ import 'package:flutter/material.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 import '../../services/gemini_service.dart';
 import '../../services/football_api_service.dart';
 import '../../services/match_pool_service.dart';
 import '../../services/rating_service.dart';
+import '../../l10n/app_localizations.dart';
+import '../../providers/language_provider.dart';
 
 class AnalysisScreen extends StatefulWidget {
   final String bulletinId;
@@ -117,7 +120,6 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
 
   Future<void> _startAnalysis() async {
     try {
-      // 1. Görseli Gemini ile analiz et
       await _updateStatus('analyzing', 'Görsel analiz ediliyor...');
       final geminiResponse = await _geminiService.analyzeImage(widget.base64Image!);
       
@@ -143,15 +145,10 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
         _statusMessage = '${matches.length} maç bulundu. Analiz ediliyor...';
       });
 
-      // 2. Tüm maçları analiz et
       await _analyzeAllMatchesInBatch(matches);
-
-      // 3. Başarılı - Firebase'e kaydet
       await _updateStatus('completed', 'Analiz tamamlandı!');
       
-      // ✅ YENİ: Analiz tamamlandı, geçmiş kuponlara yönlendir
       if (mounted) {
-        // Kısa bir başarı mesajı göster
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('✅ Analiz başarıyla tamamlandı! Geçmiş kuponlara yönlendiriliyorsunuz...'),
@@ -160,11 +157,9 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
           ),
         );
 
-        // 1 saniye bekle, sonra geçmiş kuponlara git
         await Future.delayed(const Duration(seconds: 1));
         
         if (mounted) {
-          // ✅ GoRouter ile /history sayfasına yönlendir
           context.go('/history');
         }
       }
@@ -287,7 +282,6 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
       print('📊 Firebase Pool: $poolFoundCount/${matches.length} maç bulundu');
       print('📊 Football API: $apiFoundCount takım verisi çekildi');
 
-      // Firebase'e kaydet
       await _saveAnalysisResults(matchesWithData);
 
     } catch (e, stackTrace) {
@@ -492,7 +486,7 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
       return {
         'prediction': '1',
         'confidence': 55,
-        'reasoning': 'Yetersiz istatistik - Ev sahibi avantajı uygulandı',
+        'reasoning': 'reasoning_insufficient_stats',
       };
     }
 
@@ -509,31 +503,31 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
     if (homeWinRate > 60 && goalDiff > 0.8) {
       prediction = '1';
       confidence = (70 + (homeWinRate - awayWinRate) * 0.3).toInt().clamp(65, 90);
-      reasoning = 'Ev sahibi dominasyon gösteriyor: %${homeWinRate.toInt()} kazanma oranı';
+      reasoning = 'reasoning_home_domination';
     } else if (awayWinRate > 60 && goalDiff < -0.8) {
       prediction = '2';
       confidence = (70 + (awayWinRate - homeWinRate) * 0.3).toInt().clamp(65, 90);
-      reasoning = 'Deplasman takımı çok güçlü: %${awayWinRate.toInt()} kazanma oranı';
+      reasoning = 'reasoning_away_strong';
     } else if (homeWinRate > awayWinRate + 15 && goalDiff > 0.3) {
       prediction = '1';
       confidence = (60 + (homeWinRate - awayWinRate) * 0.4).toInt().clamp(55, 75);
-      reasoning = 'Ev sahibi daha istikrarlı: %${homeWinRate.toInt()} vs %${awayWinRate.toInt()}';
+      reasoning = 'reasoning_home_stable';
     } else if (awayWinRate > homeWinRate + 15 && goalDiff < -0.3) {
       prediction = '2';
       confidence = (60 + (awayWinRate - homeWinRate) * 0.4).toInt().clamp(55, 75);
-      reasoning = 'Deplasman daha istikrarlı: %${awayWinRate.toInt()} vs %${homeWinRate.toInt()}';
+      reasoning = 'reasoning_away_stable';
     } else if ((homeDrawRate + awayDrawRate) / 2 > 35) {
       prediction = 'X';
       confidence = (55 + ((homeDrawRate + awayDrawRate) / 2 - 35)).toInt().clamp(50, 70);
-      reasoning = 'Her iki takım da sık berabere kalıyor';
+      reasoning = 'reasoning_both_draw_often';
     } else if ((homeWinRate - awayWinRate).abs() < 10) {
       prediction = '1';
       confidence = 52;
-      reasoning = 'Dengeli güçler, ev sahibi avantajı minimal';
+      reasoning = 'reasoning_balanced';
     } else {
       prediction = '1';
       confidence = (55 + goalDiff * 5).toInt().clamp(50, 65);
-      reasoning = 'Ev sahibi avantajı göz önünde bulunduruldu';
+      reasoning = 'reasoning_home_advantage';
     }
 
     return {
@@ -558,15 +552,15 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
     if (avgGoals > 3.0) {
       prediction = 'Üst 2.5';
       confidence = (65 + ((avgGoals - 3.0) * 10).clamp(0, 25)).toInt();
-      reasoning = 'Yüksek gol ortalaması (Beklenen: ${avgGoals.toStringAsFixed(1)} gol)';
+      reasoning = 'reasoning_high_goals';
     } else if (avgGoals < 2.0) {
       prediction = 'Alt 2.5';
       confidence = (65 + ((2.0 - avgGoals) * 10).clamp(0, 25)).toInt();
-      reasoning = 'Düşük gol ortalaması (Beklenen: ${avgGoals.toStringAsFixed(1)} gol)';
+      reasoning = 'reasoning_low_goals';
     } else {
       prediction = 'Üst 2.5';
       confidence = 50;
-      reasoning = 'Orta seviye gol beklentisi (${avgGoals.toStringAsFixed(1)} gol)';
+      reasoning = 'reasoning_medium_goals';
     }
 
     return {
@@ -596,15 +590,15 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
     if (bothTeamsScore && bothTeamsConcede) {
       prediction = 'Evet (KG Var)';
       confidence = (70 + h2hBothScoredRate * 0.2).toInt().clamp(55, 90);
-      reasoning = 'Her iki takım da gol atıyor ve yiyor';
+      reasoning = 'reasoning_both_teams_score';
     } else if (!bothTeamsScore || homeAvgGoalsFor < 0.8 || awayAvgGoalsFor < 0.8) {
       prediction = 'Hayır (KG Yok)';
       confidence = 65;
-      reasoning = 'En az bir takım gol üretmekte zorlanıyor';
+      reasoning = 'reasoning_team_struggles';
     } else {
       prediction = 'Evet (KG Var)';
       confidence = 55;
-      reasoning = 'Orta seviye karşılıklı gol olasılığı';
+      reasoning = 'reasoning_medium_btts';
     }
 
     return {
@@ -630,23 +624,23 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
     if (goalDiff > 1.2 && winRateDiff > 0.25) {
       prediction = 'Ev Sahibi -1.5';
       confidence = (65 + (goalDiff * 10).clamp(0, 25)).toInt();
-      reasoning = 'Ev sahibi net üstünlük';
+      reasoning = 'reasoning_home_clear_advantage';
     } else if (goalDiff < -1.2 && winRateDiff < -0.25) {
       prediction = 'Deplasman -1.5';
       confidence = (65 + (goalDiff.abs() * 10).clamp(0, 25)).toInt();
-      reasoning = 'Deplasman net üstünlük';
+      reasoning = 'reasoning_away_clear_advantage';
     } else if (goalDiff > 0.5) {
       prediction = 'Ev Sahibi -0.5';
       confidence = 60;
-      reasoning = 'Ev sahibi hafif üstün';
+      reasoning = 'reasoning_home_slight_advantage';
     } else if (goalDiff < -0.5) {
       prediction = 'Deplasman -0.5';
       confidence = 60;
-      reasoning = 'Deplasman hafif üstün';
+      reasoning = 'reasoning_away_slight_advantage';
     } else {
       prediction = 'Handikap 0';
       confidence = 50;
-      reasoning = 'Dengeli güçler';
+      reasoning = 'reasoning_balanced_forces';
     }
 
     return {
@@ -672,15 +666,15 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
     if (firstHalfHomeGoals > firstHalfAwayGoals + 0.3 && homeWinRate > 0.5) {
       prediction = '1 (Ev Sahibi)';
       confidence = 60;
-      reasoning = 'Ev sahibi ilk yarıda baskın';
+      reasoning = 'reasoning_home_first_half_dominant';
     } else if (firstHalfAwayGoals > firstHalfHomeGoals + 0.3 && awayWinRate > 0.5) {
       prediction = '2 (Deplasman)';
       confidence = 60;
-      reasoning = 'Deplasman ilk yarıda baskın';
+      reasoning = 'reasoning_away_first_half_dominant';
     } else {
       prediction = 'X (Beraberlik)';
       confidence = 55;
-      reasoning = 'İlk yarı genelde dengeli başlar';
+      reasoning = 'reasoning_first_half_balanced';
     }
 
     return {
@@ -700,19 +694,19 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
     if (totalGoalsExpected < 1.5) {
       prediction = '0-1 Gol';
       confidence = 65;
-      reasoning = 'Çok düşük gol beklentisi';
+      reasoning = 'reasoning_very_low_goals';
     } else if (totalGoalsExpected < 2.5) {
       prediction = '2-3 Gol';
       confidence = 70;
-      reasoning = 'Normal gol beklentisi';
+      reasoning = 'reasoning_normal_goals';
     } else if (totalGoalsExpected < 3.5) {
       prediction = '3-4 Gol';
       confidence = 65;
-      reasoning = 'Yüksek gol beklentisi';
+      reasoning = 'reasoning_high_goals_expected';
     } else {
       prediction = '4+ Gol';
       confidence = 60;
-      reasoning = 'Çok yüksek gol beklentisi';
+      reasoning = 'reasoning_very_high_goals';
     }
 
     return {
@@ -736,7 +730,7 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
       return {
         'prediction': '1X',
         'confidence': 55,
-        'reasoning': 'Ev sahibi avantajı (yetersiz veri)',
+        'reasoning': 'reasoning_home_advantage_insufficient',
       };
     }
 
@@ -750,23 +744,23 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
     if (homeNotLoseRate > 75) {
       prediction = '1X';
       confidence = 75;
-      reasoning = 'Ev sahibi kaybetme oranı çok düşük';
+      reasoning = 'reasoning_home_low_loss_rate';
     } else if (awayNotLoseRate > 75) {
       prediction = 'X2';
       confidence = 75;
-      reasoning = 'Deplasman kaybetme oranı çok düşük';
+      reasoning = 'reasoning_away_low_loss_rate';
     } else if (homeNotLoseRate > awayNotLoseRate + 10) {
       prediction = '1X';
       confidence = 70;
-      reasoning = 'Ev sahibi daha güvenli seçim';
+      reasoning = 'reasoning_home_safer';
     } else if (awayNotLoseRate > homeNotLoseRate + 10) {
       prediction = 'X2';
       confidence = 70;
-      reasoning = 'Deplasman daha güvenli seçim';
+      reasoning = 'reasoning_away_safer';
     } else {
       prediction = '12';
       confidence = 65;
-      reasoning = 'Net kazanan bekleniyor';
+      reasoning = 'reasoning_clear_winner';
     }
 
     return {
@@ -806,30 +800,29 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context)!;
+    
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () {
-            // ✅ GoRouter ile geri git
             if (context.canPop()) {
               context.pop();
             } else {
-              // Eğer pop edilemiyorsa home'a git
               context.go('/home');
             }
           },
-          tooltip: 'Geri',
+          tooltip: loc.t('back'),
         ),
-        title: const Text('Analiz Sonuçları'),
-        backgroundColor: Colors.blue[700],
+        title: Text(loc.t('analysis_results')),
+        backgroundColor: Theme.of(context).colorScheme.primary,
         foregroundColor: Colors.white,
         elevation: 0,
         actions: [
-          // ⭐ Yıldız butonu
           IconButton(
             icon: const Icon(Icons.star_outline),
-            tooltip: 'Uygulamayı Değerlendir',
+            tooltip: loc.t('rate_app'),
             onPressed: _handleRatingRequest,
           ),
         ],
@@ -838,7 +831,6 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
     );
   }
   
-  // ⭐ Rating isteği handler
   Future<void> _handleRatingRequest() async {
     try {
       final user = FirebaseAuth.instance.currentUser;
@@ -855,7 +847,6 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
         return;
       }
       
-      // Daha önce değerlendirme yapılmış mı kontrol et
       final hasRated = await _ratingService.hasRatedBefore(user.uid);
       
       if (hasRated) {
@@ -870,7 +861,6 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
         return;
       }
       
-      // Rating dialog'unu göster ve bonus ver
       final success = await _ratingService.requestRating(user.uid);
       
       if (success && mounted) {
@@ -897,6 +887,8 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
   }
 
   Widget _buildLoadingView() {
+    final loc = AppLocalizations.of(context)!;
+    
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
@@ -913,7 +905,7 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
             if (_matches.isNotEmpty) ...[
               const SizedBox(height: 16),
               Text(
-                '${_matches.length} maç tespit edildi',
+                '${_matches.length} ${loc.t('matches_found')}',
                 style: Theme.of(context).textTheme.bodyMedium,
               ),
             ],
@@ -924,6 +916,8 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
   }
 
   Widget _buildResultsView() {
+    final loc = AppLocalizations.of(context)!;
+    
     if (_errorMessage != null) {
       return Center(
         child: Padding(
@@ -934,7 +928,7 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
               Icon(Icons.error_outline, size: 80, color: Colors.red[300]),
               const SizedBox(height: 16),
               Text(
-                'Analiz Başarısız',
+                loc.t('analysis_failed'),
                 style: Theme.of(context).textTheme.titleLarge,
               ),
               const SizedBox(height: 8),
@@ -952,7 +946,7 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
                     context.go('/home');
                   }
                 },
-                child: const Text('Geri Dön'),
+                child: Text(loc.t('go_back')),
               ),
             ],
           ),
@@ -960,7 +954,6 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
       );
     }
 
-    // ✅ FIX: Sonuçlar yoksa bile mesaj göster
     if (_analysisResults.isEmpty) {
       return Center(
         child: Padding(
@@ -971,12 +964,12 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
               Icon(Icons.info_outline, size: 80, color: Colors.blue[300]),
               const SizedBox(height: 16),
               Text(
-                'Analiz Sonucu Bulunamadı',
+                loc.t('no_analysis_results'),
                 style: Theme.of(context).textTheme.titleLarge,
               ),
               const SizedBox(height: 8),
               Text(
-                'Henüz hiç maç analiz edilmedi',
+                loc.t('no_matches_analyzed'),
                 textAlign: TextAlign.center,
                 style: TextStyle(color: Colors.grey[600]),
               ),
@@ -986,11 +979,47 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
       );
     }
 
-    final totalCount = _analysisResults.length;
+    // ⭐ GOLDEN CARD: Tüm tahminler arasından en yüksek confidence'ı bul
+    Map<String, dynamic>? goldenPick;
+    String? goldenMatchId;
+    String? goldenPredictionType;
+    int maxConfidence = 0;
+
+    for (int i = 0; i < _analysisResults.length; i++) {
+      final match = _analysisResults[i];
+      final predictions = match['predictions'] as Map<String, dynamic>?;
+      
+      if (predictions != null) {
+        predictions.forEach((key, value) {
+          final confidence = value['confidence'] as int? ?? 0;
+          if (confidence > maxConfidence) {
+            maxConfidence = confidence;
+            goldenPick = value;
+            goldenMatchId = '${match['homeTeam']} vs ${match['awayTeam']}';
+            goldenPredictionType = key;
+          }
+        });
+      }
+    }
+
+    // ⭐ Maçları maxConfidence'a göre sırala
+    final sortedMatches = List<Map<String, dynamic>>.from(_analysisResults);
+    sortedMatches.sort((a, b) {
+      final aMax = _getMaxConfidenceForMatch(a);
+      final bMax = _getMaxConfidenceForMatch(b);
+      return bMax.compareTo(aMax);
+    });
 
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
+        // ⭐ GOLDEN CARD
+        if (goldenPick != null && goldenMatchId != null)
+          _buildGoldenCard(loc, goldenPick!, goldenMatchId!, goldenPredictionType!),
+        
+        const SizedBox(height: 24),
+        
+        // Header
         Card(
           color: Colors.blue[50],
           child: Padding(
@@ -1004,7 +1033,7 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  '$totalCount Maç Analiz Edildi',
+                  '${sortedMatches.length} ${loc.t('matches_analyzed')}',
                   style: Theme.of(context).textTheme.titleLarge?.copyWith(
                         color: Colors.blue[900],
                         fontWeight: FontWeight.bold,
@@ -1012,7 +1041,7 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'AI tarafından 7 farklı bahis türü için profesyonel analiz yapıldı',
+                  loc.t('professional_analysis_done'),
                   style: TextStyle(color: Colors.grey[700]),
                   textAlign: TextAlign.center,
                 ),
@@ -1020,27 +1049,270 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
             ),
           ),
         ),
+        
         const SizedBox(height: 16),
-        ..._analysisResults.map((result) => _buildMatchCard(result)),
+        
+        // Maç kartları
+        ...sortedMatches.map((result) => _buildMatchCard(loc, result)),
       ],
     );
   }
 
-  Widget _buildMatchCard(Map<String, dynamic> result) {
-    final predictions = result['predictions'] as Map<String, dynamic>?;
+  int _getMaxConfidenceForMatch(Map<String, dynamic> match) {
+    final predictions = match['predictions'] as Map<String, dynamic>?;
+    if (predictions == null) return 0;
+    
+    int max = 0;
+    predictions.forEach((key, value) {
+      final confidence = value['confidence'] as int? ?? 0;
+      if (confidence > max) max = confidence;
+    });
+    return max;
+  }
 
-    return Card(
+  // ⭐ GOLDEN CARD Widget
+  Widget _buildGoldenCard(AppLocalizations loc, Map<String, dynamic> pick, String matchId, String predictionType) {
+    final confidence = pick['confidence'] as int? ?? 0;
+    final prediction = pick['prediction'] as String? ?? '?';
+    final reasoning = pick['reasoning'] as String? ?? '';
+    
+    return Container(
       margin: const EdgeInsets.only(bottom: 16),
-      elevation: 3,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            const Color(0xFF1976D2), // Mavi
+            const Color(0xFF2E7D32), // Yeşil
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.blue.withOpacity(0.3),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Rozet
             Row(
               children: [
-                Icon(Icons.sports_soccer, color: Colors.blue[700], size: 24),
-                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.amber,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.emoji_events, color: Colors.white, size: 18),
+                      const SizedBox(width: 6),
+                      Text(
+                        loc.t('todays_pick'),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            
+            const SizedBox(height: 16),
+            
+            // Maç bilgisi
+            Text(
+              matchId,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            
+            const SizedBox(height: 8),
+            
+            Text(
+              _getPredictionTypeLabel(loc, predictionType),
+              style: TextStyle(
+                color: Colors.white.withOpacity(0.9),
+                fontSize: 14,
+              ),
+            ),
+            
+            const SizedBox(height: 20),
+            
+            // Tahmin
+            Text(
+              prediction,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 28,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            
+            const SizedBox(height: 16),
+            
+            // Yıldızlar + Confidence
+            Row(
+              children: [
+                ..._buildStars(confidence),
+                const SizedBox(width: 12),
+                Text(
+                  '%$confidence',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+            
+            const SizedBox(height: 12),
+            
+            // Progress Bar
+            ClipRRect(
+              borderRadius: BorderRadius.circular(10),
+              child: LinearProgressIndicator(
+                value: confidence / 100,
+                minHeight: 8,
+                backgroundColor: Colors.white.withOpacity(0.3),
+                valueColor: const AlwaysStoppedAnimation<Color>(Colors.amber),
+              ),
+            ),
+            
+            const SizedBox(height: 16),
+            
+            // İnsansı Yorum
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(Icons.lightbulb, color: Colors.amber, size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      _getFriendlyReasoning(loc, reasoning),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 13,
+                        height: 1.4,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _getPredictionTypeLabel(AppLocalizations loc, String type) {
+    switch (type) {
+      case 'matchResult':
+        return loc.t('match_result');
+      case 'over25':
+        return loc.t('over_under_25');
+      case 'btts':
+        return loc.t('btts');
+      case 'handicap':
+        return loc.t('handicap');
+      case 'firstHalf':
+        return loc.t('first_half_result');
+      case 'totalGoalsRange':
+        return loc.t('total_goals_range');
+      case 'doubleChance':
+        return loc.t('double_chance');
+      default:
+        return type;
+    }
+  }
+
+  List<Widget> _buildStars(int confidence) {
+    int starCount = 1;
+    if (confidence >= 81) {
+      starCount = 5;
+    } else if (confidence >= 71) {
+      starCount = 4;
+    } else if (confidence >= 61) {
+      starCount = 3;
+    } else if (confidence >= 51) {
+      starCount = 2;
+    }
+    
+    return List.generate(5, (index) {
+      return Icon(
+        index < starCount ? Icons.star : Icons.star_border,
+        color: Colors.amber,
+        size: 24,
+      );
+    });
+  }
+
+  String _getFriendlyReasoning(AppLocalizations loc, String reasoningKey) {
+    // Eğer reasoning key ise, friendly versiyonunu kullan
+    if (reasoningKey.startsWith('reasoning_')) {
+      final friendlyKey = reasoningKey.replaceFirst('reasoning_', 'friendly_reasoning_');
+      final friendly = loc.t(friendlyKey);
+      // Eğer çeviri bulunamazsa (key döndüyse), normal reasoning'i kullan
+      if (friendly == friendlyKey) {
+        return loc.t(reasoningKey);
+      }
+      return friendly;
+    }
+    return reasoningKey;
+  }
+
+  Widget _buildMatchCard(AppLocalizations loc, Map<String, dynamic> result) {
+    final predictions = result['predictions'] as Map<String, dynamic>?;
+    
+    // Tahminleri confidence'a göre sırala
+    List<MapEntry<String, dynamic>> sortedPredictions = [];
+    if (predictions != null) {
+      sortedPredictions = predictions.entries.toList();
+      sortedPredictions.sort((a, b) {
+        final aConf = a.value['confidence'] as int? ?? 0;
+        final bConf = b.value['confidence'] as int? ?? 0;
+        return bConf.compareTo(aConf);
+      });
+    }
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 20),
+      elevation: 4,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Maç başlığı
+            Row(
+              children: [
+                Icon(Icons.sports_soccer, color: Colors.blue[700], size: 28),
+                const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -1049,14 +1321,14 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
                         '${result['homeTeam']} vs ${result['awayTeam']}',
                         style: const TextStyle(
                           fontWeight: FontWeight.bold,
-                          fontSize: 16,
+                          fontSize: 17,
                         ),
                       ),
                       if (result['league'] != null && result['league'] != 'Bilinmiyor')
                         Text(
                           result['league'],
                           style: TextStyle(
-                            fontSize: 12,
+                            fontSize: 13,
                             color: Colors.grey[600],
                           ),
                         ),
@@ -1065,96 +1337,52 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
                 ),
               ],
             ),
-            const Divider(height: 24),
+            
+            const Divider(height: 28),
 
-            if (predictions != null) ...[
-              _buildPredictionRow(
-                icon: Icons.emoji_events,
-                title: 'Maç Sonucu',
-                color: Colors.orange,
-                prediction: predictions['matchResult']?['prediction'] ?? '?',
-                confidence: predictions['matchResult']?['confidence'] ?? 0,
-                reasoning: predictions['matchResult']?['reasoning'] ?? '',
-              ),
-              const SizedBox(height: 12),
-              _buildPredictionRow(
-                icon: Icons.sports_score,
-                title: 'Alt/Üst 2.5 Gol',
-                color: Colors.green,
-                prediction: predictions['over25']?['prediction'] ?? '?',
-                confidence: predictions['over25']?['confidence'] ?? 0,
-                reasoning: predictions['over25']?['reasoning'] ?? '',
-                extra: predictions['over25']?['expectedGoals'] != null
-                    ? 'Beklenen: ${predictions['over25']['expectedGoals']} gol'
-                    : null,
-              ),
-              const SizedBox(height: 12),
-              _buildPredictionRow(
-                icon: Icons.compare_arrows,
-                title: 'Karşılıklı Gol',
-                color: Colors.purple,
-                prediction: predictions['btts']?['prediction'] ?? '?',
-                confidence: predictions['btts']?['confidence'] ?? 0,
-                reasoning: predictions['btts']?['reasoning'] ?? '',
-              ),
-              const SizedBox(height: 12),
-              _buildPredictionRow(
-                icon: Icons.balance,
-                title: 'Handikap',
-                color: Colors.blue,
-                prediction: predictions['handicap']?['prediction'] ?? '?',
-                confidence: predictions['handicap']?['confidence'] ?? 0,
-                reasoning: predictions['handicap']?['reasoning'] ?? '',
-              ),
-              const SizedBox(height: 12),
-              _buildPredictionRow(
-                icon: Icons.timer_outlined,
-                title: 'İlk Yarı',
-                color: Colors.teal,
-                prediction: predictions['firstHalf']?['prediction'] ?? '?',
-                confidence: predictions['firstHalf']?['confidence'] ?? 0,
-                reasoning: predictions['firstHalf']?['reasoning'] ?? '',
-              ),
-              const SizedBox(height: 12),
-              _buildPredictionRow(
-                icon: Icons.show_chart,
-                title: 'Toplam Gol Aralığı',
-                color: Colors.amber,
-                prediction: predictions['totalGoalsRange']?['prediction'] ?? '?',
-                confidence: predictions['totalGoalsRange']?['confidence'] ?? 0,
-                reasoning: predictions['totalGoalsRange']?['reasoning'] ?? '',
-              ),
-              const SizedBox(height: 12),
-              _buildPredictionRow(
-                icon: Icons.casino,
-                title: 'Çifte Şans',
-                color: Colors.indigo,
-                prediction: predictions['doubleChance']?['prediction'] ?? '?',
-                confidence: predictions['doubleChance']?['confidence'] ?? 0,
-                reasoning: predictions['doubleChance']?['reasoning'] ?? '',
-              ),
+            // Tahminler (sıralı)
+            if (sortedPredictions.isNotEmpty) ...[
+              ...sortedPredictions.map((entry) {
+                final type = entry.key;
+                final pred = entry.value;
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 14),
+                  child: _buildPredictionRow(
+                    loc: loc,
+                    type: type,
+                    prediction: pred['prediction'] ?? '?',
+                    confidence: pred['confidence'] ?? 0,
+                    reasoning: pred['reasoning'] ?? '',
+                    extra: pred['expectedGoals'],
+                  ),
+                );
+              }),
             ],
 
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
+            
+            // İstatistikler
             Container(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 color: Colors.grey[100],
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(12),
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
                   _buildStatColumn(
-                    'Ev Sahibi',
-                    'Gol: ${result['homeStats']?['avgGoalsFor'] ?? '0'}',
-                    'Kazanma: %${result['homeStats']?['winRate'] ?? 0}',
+                    loc,
+                    loc.t('home_team'),
+                    '${loc.t('goals')}: ${result['homeStats']?['avgGoalsFor'] ?? '0'}',
+                    '${loc.t('win_rate')}: %${result['homeStats']?['winRate'] ?? 0}',
                   ),
                   Container(width: 1, height: 40, color: Colors.grey[400]),
                   _buildStatColumn(
-                    'Deplasman',
-                    'Gol: ${result['awayStats']?['avgGoalsFor'] ?? '0'}',
-                    'Kazanma: %${result['awayStats']?['winRate'] ?? 0}',
+                    loc,
+                    loc.t('away_team'),
+                    '${loc.t('goals')}: ${result['awayStats']?['avgGoalsFor'] ?? '0'}',
+                    '${loc.t('win_rate')}: %${result['awayStats']?['winRate'] ?? 0}',
                   ),
                 ],
               ),
@@ -1166,20 +1394,23 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
   }
 
   Widget _buildPredictionRow({
-    required IconData icon,
-    required String title,
-    required Color color,
+    required AppLocalizations loc,
+    required String type,
     required String prediction,
     required int confidence,
     required String reasoning,
     String? extra,
   }) {
+    final color = _getPredictionColor(type);
+    final icon = _getPredictionIcon(type);
+    final label = _getPredictionTypeLabel(loc, type);
+    
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.05),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withValues(alpha: 0.3)),
+        color: color.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: color.withOpacity(0.3), width: 1.5),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1187,9 +1418,9 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
           Row(
             children: [
               Icon(icon, size: 20, color: color),
-              const SizedBox(width: 8),
+              const SizedBox(width: 10),
               Text(
-                title,
+                label,
                 style: TextStyle(
                   fontWeight: FontWeight.w600,
                   fontSize: 14,
@@ -1197,51 +1428,48 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
                 ),
               ),
               const Spacer(),
+              // Yıldızlar (küçük)
+              ..._buildSmallStars(confidence),
+              const SizedBox(width: 8),
+              // Confidence badge
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                 decoration: BoxDecoration(
-                  color: _getConfidenceColor(confidence).withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(6),
+                  color: _getConfidenceColor(confidence).withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(8),
                   border: Border.all(
                     color: _getConfidenceColor(confidence),
                     width: 1.5,
                   ),
                 ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      Icons.bar_chart,
-                      size: 12,
-                      color: _getConfidenceColor(confidence),
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      '%$confidence',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12,
-                        color: _getConfidenceColor(confidence),
-                      ),
-                    ),
-                  ],
+                child: Text(
+                  '%$confidence',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                    color: _getConfidenceColor(confidence),
+                  ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          
+          const SizedBox(height: 10),
+          
+          // Tahmin
           Text(
             prediction,
             style: TextStyle(
               fontWeight: FontWeight.bold,
-              fontSize: 15,
+              fontSize: 16,
               color: color,
             ),
           ),
+          
           if (extra != null) ...[
-            const SizedBox(height: 4),
+            const SizedBox(height: 5),
             Text(
-              extra,
+              '${loc.t('expected')}: $extra ${loc.t('goal')}',
               style: TextStyle(
                 fontSize: 12,
                 color: Colors.grey[600],
@@ -1249,19 +1477,37 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
               ),
             ),
           ],
-          const SizedBox(height: 6),
+          
+          const SizedBox(height: 10),
+          
+          // Progress Bar (Pastel)
+          ClipRRect(
+            borderRadius: BorderRadius.circular(6),
+            child: LinearProgressIndicator(
+              value: confidence / 100,
+              minHeight: 6,
+              backgroundColor: Colors.grey[300],
+              valueColor: AlwaysStoppedAnimation<Color>(
+                color.withOpacity(0.7),
+              ),
+            ),
+          ),
+          
+          const SizedBox(height: 10),
+          
+          // İnsansı Yorum
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(Icons.lightbulb_outline, size: 14, color: Colors.orange[700]),
-              const SizedBox(width: 6),
+              Icon(Icons.psychology, size: 16, color: Colors.deepPurple[300]),
+              const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  reasoning,
+                  _getFriendlyReasoning(loc, reasoning),
                   style: TextStyle(
                     fontSize: 12,
                     color: Colors.grey[700],
-                    height: 1.3,
+                    height: 1.4,
                   ),
                 ),
               ),
@@ -1272,25 +1518,88 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
     );
   }
 
-  Widget _buildStatColumn(String title, String stat1, String stat2) {
+  List<Widget> _buildSmallStars(int confidence) {
+    int starCount = 1;
+    if (confidence >= 81) {
+      starCount = 5;
+    } else if (confidence >= 71) {
+      starCount = 4;
+    } else if (confidence >= 61) {
+      starCount = 3;
+    } else if (confidence >= 51) {
+      starCount = 2;
+    }
+    
+    return List.generate(5, (index) {
+      return Icon(
+        index < starCount ? Icons.star : Icons.star_border,
+        color: Colors.amber[700],
+        size: 16,
+      );
+    });
+  }
+
+  Color _getPredictionColor(String type) {
+    switch (type) {
+      case 'matchResult':
+        return Colors.orange;
+      case 'over25':
+        return Colors.green;
+      case 'btts':
+        return Colors.purple;
+      case 'handicap':
+        return Colors.blue;
+      case 'firstHalf':
+        return Colors.teal;
+      case 'totalGoalsRange':
+        return Colors.amber;
+      case 'doubleChance':
+        return Colors.indigo;
+      default:
+        return Colors.grey;
+    }
+  }
+
+  IconData _getPredictionIcon(String type) {
+    switch (type) {
+      case 'matchResult':
+        return Icons.emoji_events;
+      case 'over25':
+        return Icons.sports_score;
+      case 'btts':
+        return Icons.compare_arrows;
+      case 'handicap':
+        return Icons.balance;
+      case 'firstHalf':
+        return Icons.timer_outlined;
+      case 'totalGoalsRange':
+        return Icons.show_chart;
+      case 'doubleChance':
+        return Icons.casino;
+      default:
+        return Icons.help_outline;
+    }
+  }
+
+  Widget _buildStatColumn(AppLocalizations loc, String title, String stat1, String stat2) {
     return Column(
       children: [
         Text(
           title,
           style: TextStyle(
-            fontSize: 12,
+            fontSize: 13,
             fontWeight: FontWeight.w600,
             color: Colors.grey[700],
           ),
         ),
-        const SizedBox(height: 6),
+        const SizedBox(height: 8),
         Text(
           stat1,
-          style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+          style: TextStyle(fontSize: 12, color: Colors.grey[600]),
         ),
         Text(
           stat2,
-          style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+          style: TextStyle(fontSize: 12, color: Colors.grey[600]),
         ),
       ],
     );

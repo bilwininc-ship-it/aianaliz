@@ -81,7 +81,7 @@ class InterstitialAdService {
 
     try {
       // Test Ad Unit ID (geliştirme için)
-      String adUnitId = 'ca-app-pub-3940256099942544/1033173712'; // Test Interstitial ID
+      String adUnitId = 'ca-app-pub-6066935997419400/9631151157'; // gercek Interstitial ID
       
       // Remote Config'den gerçek ID al (production'da)
       final remoteAdUnit = _remoteConfig.admobInterstitialAdUnit;

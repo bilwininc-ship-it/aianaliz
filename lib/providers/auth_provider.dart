@@ -457,12 +457,4 @@ class AuthProvider extends ChangeNotifier {
     }
     return null;
   }
-  /// ✅ Ödüllü reklamı arka planda pre-load et
-  void _preloadRewardedAd() {
-    try {
-      _rewardedAdService.preloadAd();
-    } catch (e) {
-      // Silent fail - reklam yüklenemezse uygulama çalışmaya devam etsin
-    }
-  }
 }

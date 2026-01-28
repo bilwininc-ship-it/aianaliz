@@ -132,12 +132,37 @@ class _HomeScreenState extends State<HomeScreen> {
       return;
     }
 
+    // ✅ Eğer reklam yüklü değilse, yükle VE göster
     if (!_rewardedAdService.isAdLoaded) {
       setState(() {
         _adLoading = true;
       });
+      
+      // Reklamı yükle
       await _rewardedAdService.loadAd();
+      
+      // Yükleme tamamlandıysa göster
+      if (_rewardedAdService.isAdLoaded) {
+        await _rewardedAdService.showAd(userId);
+      } else {
+        // Yükleme başarısız olduysa kullanıcıya bildir
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(loc.t('ad_failed_to_load')),
+              backgroundColor: Colors.orange,
+            ),
+          );
+        }
+      }
+      
+      if (mounted) {
+        setState(() {
+          _adLoading = false;
+        });
+      }
     } else {
+      // ✅ Reklam zaten yüklü, direkt göster
       await _rewardedAdService.showAd(userId);
     }
   }

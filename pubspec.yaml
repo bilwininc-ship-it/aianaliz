@@ -15,6 +15,7 @@ dependencies:
   firebase_auth: ^6.1.4
   firebase_database: ^12.1.2  # ✅ Realtime Database eklendi
   firebase_remote_config: ^6.1.4
+  firebase_analytics: 12.1.1  # ✅ Firebase Analytics eklendi
   cloud_functions: ^6.0.6  # ✅ Cloud Functions (Satın alma doğrulama için)
   firebase_messaging: ^16.1.1  # ✅ Push Notifications (FCM)
   # ❌ cloud_firestore KALDIRILDI - Realtime Database kullanıyoruz

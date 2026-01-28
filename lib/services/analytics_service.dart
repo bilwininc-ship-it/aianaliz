@@ -168,7 +168,7 @@ class AnalyticsService {
   /// Custom event tracking
   Future<void> trackCustomEvent({
     required String eventName,
-    Map<String, dynamic>? parameters,
+    Map<String, Object>? parameters,
   }) async {
     if (!_initialized) return;
     

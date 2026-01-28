@@ -9,6 +9,7 @@ import '../models/credit_transaction_model.dart';
 import '../services/user_service.dart';
 import '../services/notification_service.dart';
 import '../services/analytics_service.dart'; // ✅ Analytics eklendi
+import '../services/rewarded_ad_service.dart'; // ✅ Rewarded Ad Service eklendi
 
 class AuthProvider extends ChangeNotifier {
   final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -16,6 +17,7 @@ class AuthProvider extends ChangeNotifier {
   final DeviceInfoPlugin _deviceInfo = DeviceInfoPlugin();
   final NotificationService _notificationService = NotificationService();
   final AnalyticsService _analytics = AnalyticsService(); // ✅ Analytics eklendi
+  final RewardedAdService _rewardedAdService = RewardedAdService(); // ✅ Rewarded Ad Service
   
   User? _user;
   UserModel? _userModel;
@@ -52,6 +54,11 @@ class AuthProvider extends ChangeNotifier {
         
         // ✅ FCM Token kaydet
         await _saveFcmToken(user.uid);
+        
+        // ✅ Ödüllü reklamı arka planda pre-load et (ücretsiz kullanıcılar için)
+        if (!(_userModel?.isActivePremium ?? false)) {
+          _preloadRewardedAd();
+        }
       } else {
         _userModel = null;
         _lastTokenRefresh = null;
@@ -131,6 +138,17 @@ class AuthProvider extends ChangeNotifier {
       await _notificationService.saveFcmTokenToDatabase(uid);
     } catch (e) {
       // Silent fail
+    }
+  }
+  
+  /// ✅ Ödüllü reklamı arka planda pre-load et
+  Future<void> _preloadRewardedAd() async {
+    try {
+      debugPrint('🎬 Ödüllü reklam pre-loading başlatılıyor...');
+      await _rewardedAdService.preloadAd();
+    } catch (e) {
+      debugPrint('⚠️ Ödüllü reklam pre-loading hatası: $e');
+      // Silent fail - uygulama çalışmaya devam eder
     }
   }
   
@@ -438,5 +456,13 @@ class AuthProvider extends ChangeNotifier {
       // Silent fail
     }
     return null;
+  }
+  /// ✅ Ödüllü reklamı arka planda pre-load et
+  void _preloadRewardedAd() {
+    try {
+      _rewardedAdService.preloadAd();
+    } catch (e) {
+      // Silent fail - reklam yüklenemezse uygulama çalışmaya devam etsin
+    }
   }
 }

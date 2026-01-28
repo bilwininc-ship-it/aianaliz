@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 import '../../providers/auth_provider.dart';
 import '../../services/rewarded_ad_service.dart';
+import '../../services/analytics_service.dart';
 import '../../l10n/app_localizations.dart';
 import 'dart:async';
 
@@ -16,6 +17,7 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   final RewardedAdService _rewardedAdService = RewardedAdService();
+  final AnalyticsService _analytics = AnalyticsService(); // ✅ Analytics
   bool _adLoading = false;
   bool _canWatchAd = false;
   Duration _remainingCooldown = Duration.zero;

@@ -8,12 +8,14 @@ import '../models/user_model.dart';
 import '../models/credit_transaction_model.dart';
 import '../services/user_service.dart';
 import '../services/notification_service.dart';
+import '../services/analytics_service.dart'; // ✅ Analytics eklendi
 
 class AuthProvider extends ChangeNotifier {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final UserService _userService = UserService();
   final DeviceInfoPlugin _deviceInfo = DeviceInfoPlugin();
   final NotificationService _notificationService = NotificationService();
+  final AnalyticsService _analytics = AnalyticsService(); // ✅ Analytics eklendi
   
   User? _user;
   UserModel? _userModel;
@@ -41,6 +43,9 @@ class AuthProvider extends ChangeNotifier {
       if (user != null) {
         await _ensureValidToken();
         await _loadUserModel(user.uid);
+        
+        // ✅ Firebase Analytics: User ID set
+        await _analytics.setUserId(user.uid);
         
         // ✅ Dil senkronizasyonu
         _triggerLanguageSync(user.uid);
@@ -86,6 +91,19 @@ class AuthProvider extends ChangeNotifier {
     try {
       final userModel = await _userService.getUser(uid);
       _userModel = userModel;
+      
+      // ✅ Firebase Analytics: User properties
+      if (userModel != null) {
+        await _analytics.setUserProperty(
+          name: 'is_premium',
+          value: userModel.isActivePremium.toString(),
+        );
+        await _analytics.setUserProperty(
+          name: 'credits',
+          value: userModel.credits.toString(),
+        );
+      }
+      
       notifyListeners();
     } catch (e) {
       // Silent fail

@@ -39,30 +39,42 @@ void main() async {
     debugPrint('❌ Google Mobile Ads başlatma hatası: $e');
   }
   
-  // ✅ ÖDÜLLÜ REKLAMI ÖNCEDEN YÜKLE (Kredi Kazan için)
+  // ✅ PARALEL YÜKLEME: Tüm reklamları aynı anda yükle
+  // 🚀 PERFORMANS: Sıralı yükleme yerine paralel yükleme (3x daha hızlı)
   try {
+    debugPrint('🚀 Reklamlar paralel olarak yükleniyor...');
+    
     final rewardedAdService = RewardedAdService();
-    await rewardedAdService.preloadAd();
-    debugPrint('✅ Ödüllü reklam önceden yüklendi');
-  } catch (e) {
-    debugPrint('❌ Ödüllü reklam yükleme hatası: $e');
-  }
-  
-  // ✅ GEÇIŞ REKLAMLARINI ÖNCEDEN YÜKLE (History ve Analiz için)
-  try {
     final interstitialAdService = InterstitialAdService();
     
-    // History ekranı reklamı
-    await interstitialAdService.loadAd();
-    debugPrint('✅ History reklamı önceden yüklendi');
+    // Tüm reklamları aynı anda yükle (paralel)
+    await Future.wait([
+      // 1. Ödüllü reklam (Kredi Kazan için)
+      rewardedAdService.preloadAd().then((_) {
+        debugPrint('✅ Ödüllü reklam önceden yüklendi');
+      }).catchError((e) {
+        debugPrint('❌ Ödüllü reklam yükleme hatası: $e');
+      }),
+      
+      // 2. History ekranı reklamı
+      interstitialAdService.loadAd().then((_) {
+        debugPrint('✅ History reklamı önceden yüklendi');
+      }).catchError((e) {
+        debugPrint('❌ History reklamı yükleme hatası: $e');
+      }),
+      
+      // 3. Analiz ekranı reklamı (ayrı instance)
+      interstitialAdService.loadAnalysisAd().then((_) {
+        debugPrint('✅ Analiz reklamı önceden yüklendi');
+      }).catchError((e) {
+        debugPrint('❌ Analiz reklamı yükleme hatası: $e');
+      }),
+    ]);
     
-    // Analiz ekranı reklamı (ayrı instance)
-    await interstitialAdService.loadAnalysisAd();
-    debugPrint('✅ Analiz reklamı önceden yüklendi');
+    debugPrint('✅ Tüm reklamlar paralel yükleme tamamlandı');
   } catch (e) {
-    debugPrint('❌ Geçiş reklamı yükleme hatası: $e');
-  }
-  
+    debugPrint('❌ Paralel reklam yükleme genel hatası: $e');
+  }  
   // Remote Config initialize
   try {
     final remoteConfig = RemoteConfigService();

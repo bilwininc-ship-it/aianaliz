@@ -27,12 +27,50 @@ class InterstitialAdService {
   Function()? onAdClosed;
   Function(String)? onError;
 
-  /// 🎯 ANALİZ REKLAMLARI için kontrol YOK - Her analizde gösterilir
-  /// (Premium ve threshold kontrolü yok)
-  Future<bool> canShowAnalysisAd() async {
-    // Her zaman true dön - her analizde reklam göster
-    return true;
+  /// Kullanıcı reklam görebilir mi? (Remote Config'den threshold kontrolü)
+  Future<bool> canShowHistoryAd() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final lastShowTime = prefs.getInt('last_history_ad_time') ?? 0;
+      final currentTime = DateTime.now().millisecondsSinceEpoch;
+      
+      // ✅ Remote Config'den threshold süresini al (saat cinsinden)
+      final thresholdHours = _remoteConfig.historyAdThresholdHours;
+      final thresholdPeriod = thresholdHours * 3600000; // Saat -> milisaniye
+      
+      debugPrint('⏰ History Ad Threshold: $thresholdHours saat');
+      
+      return (currentTime - lastShowTime) >= thresholdPeriod;
+    } catch (e) {
+      debugPrint('❌ History ad threshold kontrolü hatası: $e');
+      return false;
+    }
   }
+
+  /// Kalan süre
+  Future<Duration> getRemainingTime() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final lastShowTime = prefs.getInt('last_history_ad_time') ?? 0;
+      final currentTime = DateTime.now().millisecondsSinceEpoch;
+      
+      final thresholdHours = _remoteConfig.historyAdThresholdHours;
+      final thresholdPeriod = thresholdHours * 3600000;
+      
+      final elapsed = currentTime - lastShowTime;
+      final remaining = thresholdPeriod - elapsed;
+      
+      if (remaining <= 0) {
+        return Duration.zero;
+      }
+      
+      return Duration(milliseconds: remaining);
+    } catch (e) {
+      debugPrint('❌ Kalan süre hesaplama hatası: $e');
+      return Duration.zero;
+    }
+  }
+
   /// Interstitial reklamı yükle
   Future<void> loadAd() async {
     if (_isLoading || _isAdLoaded) {
@@ -43,16 +81,16 @@ class InterstitialAdService {
     _isLoading = true;
 
     try {
-      // Gerçek Ad Unit ID (production)
-      String adUnitId = 'ca-app-pub-6066935997419400/9631151157';
+      // Test Ad Unit ID (geliştirme için)
+      String adUnitId = 'ca-app-pub-6066935997419400/9631151157'; // gercek Interstitial ID
       
-      // Remote Config'den gerçek ID al (varsa)
+      // Remote Config'den gerçek ID al (production'da)
       final remoteAdUnit = _remoteConfig.admobInterstitialAdUnit;
       if (remoteAdUnit.isNotEmpty && !remoteAdUnit.contains('~')) {
         adUnitId = remoteAdUnit;
         debugPrint('✅ Remote Config Interstitial Ad Unit kullanılıyor');
       } else {
-        debugPrint('✅ Hardcoded Interstitial Ad Unit kullanılıyor');
+        debugPrint('🔧 Test Interstitial Ad Unit kullanılıyor');
       }
 
       await InterstitialAd.load(
@@ -63,17 +101,17 @@ class InterstitialAdService {
             _interstitialAd = ad;
             _isAdLoaded = true;
             _isLoading = false;
-            debugPrint('✅ Analiz reklamı yüklendi');
+            debugPrint('✅ Interstitial reklam yüklendi');
             onAdLoaded?.call();
             _setupAdCallbacks();
           },
           onAdFailedToLoad: (error) {
             _isLoading = false;
             _isAdLoaded = false;
-            debugPrint('❌ Analiz reklamı yükleme hatası: $error');
+            debugPrint('❌ Interstitial reklam yükleme hatası: $error');
             onAdFailedToLoad?.call();
-            // ⚡ HATA YÖNETİMİ: Kullanıcı devam edebilir
-            onError?.call('Reklam yüklenemedi (analiz devam eder)');
+            // ⚡ HATA YÖNETİMİ: Kullanıcıyı bekletme, devam et
+            onError?.call('Reklam yüklenemedi (kullanıcı etkilenmez)');
           },
         ),
       );
@@ -121,7 +159,7 @@ class InterstitialAdService {
     }
 
     // Threshold kontrolü
-    final canShow = await canShowAnalysisAd();
+    final canShow = await canShowHistoryAd();
     if (!canShow) {
       debugPrint('⏰ History ad threshold dolmadı, reklam gösterilmeyecek');
       return false;

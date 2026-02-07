@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'firebase_options.dart';
 import 'services/remote_config_service.dart';
 import 'services/app_startup_service.dart';
+import 'services/interstitial_ad_service.dart';
 import 'core/routes/app_router.dart';
 import 'providers/auth_provider.dart';
 import 'providers/bulletin_provider.dart';
@@ -26,6 +28,23 @@ void main() async {
     }
   } catch (e) {
     debugPrint('❌ Firebase başlatma hatası: $e');
+  }
+  
+  // ✅ Google Mobile Ads initialize
+  try {
+    await MobileAds.instance.initialize();
+    debugPrint('✅ Google Mobile Ads başarıyla başlatıldı');
+  } catch (e) {
+    debugPrint('❌ Google Mobile Ads başlatma hatası: $e');
+  }
+  
+  // ✅ ANALİZ REKLAMINI ÖNCEDEN YÜKLE (Uygulama açılışında)
+  try {
+    final interstitialAdService = InterstitialAdService();
+    await interstitialAdService.loadAd();
+    debugPrint('✅ Analiz reklamı önceden yüklendi');
+  } catch (e) {
+    debugPrint('❌ Analiz reklamı yükleme hatası: $e');
   }
   
   // Remote Config initialize

@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:go_router/go_router.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/bulletin_provider.dart';
+import '../../services/interstitial_ad_service.dart';
 import '../../l10n/app_localizations.dart';
 
 class UploadScreen extends StatefulWidget {
@@ -17,6 +18,23 @@ class UploadScreen extends StatefulWidget {
 
 class _UploadScreenState extends State<UploadScreen> {
   final ImagePicker _picker = ImagePicker();
+  final InterstitialAdService _interstitialAdService = InterstitialAdService();
+  
+  Uint8List? _imageBytes;
+  String? _imageName;
+  bool _isUploading = false;
+
+  @override
+  void dispose() {
+    // Servisi temizlemeye gerek yok, singleton pattern kullanıldığı için
+    super.dispose();
+  }
+}
+
+class _UploadScreenState extends State<UploadScreen> {
+  final ImagePicker _picker = ImagePicker();
+  final InterstitialAdService _interstitialAdService = InterstitialAdService();
+  
   Uint8List? _imageBytes;
   String? _imageName;
   bool _isUploading = false;
@@ -93,8 +111,40 @@ class _UploadScreenState extends State<UploadScreen> {
           ),
         );
 
+        // 🎯 REKLAM GÖSTERİMİ: Premium değilse analiz başlamadan önce reklam göster
+        if (!authProvider.isPremium) {
+          try {
+            debugPrint('🎬 Analiz reklamı gösteriliyor...');
+            final canShow = await _interstitialAdService.canShowAnalysisAd();
+            
+            if (canShow && _interstitialAdService.isAdLoaded) {
+              final adShown = await _interstitialAdService.showAd();
+              if (adShown) {
+                debugPrint('✅ Analiz reklamı gösterildi');
+                // Reklam kapandıktan sonra yeni reklam yükle
+                await _interstitialAdService.loadAd();
+              } else {
+                debugPrint('⚠️ Reklam gösterilemedi, kullanıcı devam ediyor');
+              }
+            } else {
+              debugPrint('⚠️ Reklam hazır değil veya gösterilemez, kullanıcı devam ediyor');
+              // Reklam yüklenmemişse arka planda yükle
+              if (!_interstitialAdService.isAdLoaded && !_interstitialAdService.isLoading) {
+                _interstitialAdService.loadAd();
+              }
+            }
+          } catch (e) {
+            debugPrint('❌ Reklam gösterme hatası: $e');
+            // Hata olursa kullanıcı yine de devam eder
+          }
+        } else {
+          debugPrint('🎯 Premium üye - Reklam atlandı');
+        }
+
         // Analiz ekranına yönlendir (base64 image ile)
-        context.go('/analysis/$bulletinId', extra: base64Image);
+        if (mounted) {
+          context.go('/analysis/$bulletinId', extra: base64Image);
+        }
       }
     } catch (e) {
       print('❌ Yükleme hatası: $e');

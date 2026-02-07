@@ -96,48 +96,79 @@ class AuthProvider extends ChangeNotifier {
   
   Future<void> _loadUserModel(String uid) async {
     try {
-      final userModel = await _userService.getUser(uid);
+      // ⚡ ANR önleme: 5 saniye timeout
+      final userModel = await _userService.getUser(uid).timeout(
+        const Duration(seconds: 5),
+        onTimeout: () {
+          debugPrint('⚠️ User model yükleme zaman aşımı');
+          return null;
+        },
+      );
       _userModel = userModel;
       
-      // ✅ Firebase Analytics: User properties
+      // ✅ Firebase Analytics: User properties (arka planda)
       if (userModel != null) {
-        await _analytics.setUserProperty(
-          name: 'is_premium',
-          value: userModel.isActivePremium.toString(),
-        );
-        await _analytics.setUserProperty(
-          name: 'credits',
-          value: userModel.credits.toString(),
-        );
+        Future.microtask(() async {
+          try {
+            await _analytics.setUserProperty(
+              name: 'is_premium',
+              value: userModel.isActivePremium.toString(),
+            ).timeout(const Duration(seconds: 3));
+            await _analytics.setUserProperty(
+              name: 'credits',
+              value: userModel.credits.toString(),
+            ).timeout(const Duration(seconds: 3));
+          } catch (e) {
+            debugPrint('⚠️ Analytics özellik ayarlama hatası: $e');
+          }
+        });
       }
       
       notifyListeners();
     } catch (e) {
-      // Silent fail
+      debugPrint('⚠️ User model yükleme hatası: $e');
     }
   }
   
   /// ✅ Dil senkronizasyonu tetikle
   void _triggerLanguageSync(String uid) async {
     try {
-      final userModel = await _userService.getUser(uid);
+      // ⚡ ANR önleme: 3 saniye timeout
+      final userModel = await _userService.getUser(uid).timeout(
+        const Duration(seconds: 3),
+        onTimeout: () {
+          debugPrint('⚠️ Dil senkronizasyonu zaman aşımı');
+          return null;
+        },
+      );
       if (userModel != null && userModel.preferredLanguage.isNotEmpty) {
         if (onLanguageSync != null) {
           onLanguageSync!(userModel.preferredLanguage);
         }
       }
     } catch (e) {
-      // Silent fail
+      debugPrint('⚠️ Dil senkronizasyonu hatası: $e');
     }
   }
   
   /// ✅ FCM Token'ı Firebase'e kaydet
   Future<void> _saveFcmToken(String uid) async {
     try {
-      await _notificationService.initialize();
-      await _notificationService.saveFcmTokenToDatabase(uid);
+      // ⚡ ANR önleme: 5 saniye timeout
+      await _notificationService.initialize().timeout(
+        const Duration(seconds: 5),
+        onTimeout: () {
+          debugPrint('⚠️ Notification service zaman aşımı');
+        },
+      );
+      await _notificationService.saveFcmTokenToDatabase(uid).timeout(
+        const Duration(seconds: 3),
+        onTimeout: () {
+          debugPrint('⚠️ FCM token kaydetme zaman aşımı');
+        },
+      );
     } catch (e) {
-      // Silent fail
+      debugPrint('⚠️ FCM token kaydetme hatası: $e');
     }
   }
   
@@ -145,7 +176,17 @@ class AuthProvider extends ChangeNotifier {
   Future<void> _preloadRewardedAd() async {
     try {
       debugPrint('🎬 Ödüllü reklam pre-loading başlatılıyor...');
-      await _rewardedAdService.preloadAd();
+      // ⚡ ANR önleme: 10 saniye timeout, arka planda
+      Future.delayed(const Duration(milliseconds: 500), () {
+        _rewardedAdService.preloadAd().timeout(
+          const Duration(seconds: 10),
+          onTimeout: () {
+            debugPrint('⚠️ Ödüllü reklam pre-loading zaman aşımı');
+          },
+        ).catchError((e) {
+          debugPrint('⚠️ Ödüllü reklam pre-loading hatası: $e');
+        });
+      });
     } catch (e) {
       debugPrint('⚠️ Ödüllü reklam pre-loading hatası: $e');
       // Silent fail - uygulama çalışmaya devam eder

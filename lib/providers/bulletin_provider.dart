@@ -1,3 +1,7 @@
+import 'dart:async';
+import 'package:flutter/foundation.dart';
+import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_database/firebase_database.dart';
 import '../models/bulletin_model.dart';
@@ -23,7 +27,15 @@ class BulletinProvider extends ChangeNotifier {
       
       final ref = _database.ref('bulletins');
       final query = ref.orderByChild('userId').equalTo(userId);
-      final snapshot = await query.get();
+      
+      // ⚡ ANR önleme: 10 saniye timeout
+      final snapshot = await query.get().timeout(
+        const Duration(seconds: 10),
+        onTimeout: () {
+          debugPrint('⚠️ Bülten yükleme zaman aşımı');
+          throw TimeoutException('Bülten yükleme 10 saniyeyi aştı');
+        },
+      );
       
       _bulletins = [];
       
@@ -40,12 +52,12 @@ class BulletinProvider extends ChangeNotifier {
       
       _isLoading = false;
       notifyListeners();
-      print('✅ ${_bulletins.length} bülten yüklendi');
+      debugPrint('✅ ${_bulletins.length} bülten yüklendi');
     } catch (e) {
       _isLoading = false;
       _errorMessage = 'Bültenler yüklenirken hata oluştu: $e';
       notifyListeners();
-      print('❌ Bülten yükleme hatası: $e');
+      debugPrint('❌ Bülten yükleme hatası: $e');
     }
   }
   
@@ -59,24 +71,32 @@ class BulletinProvider extends ChangeNotifier {
       notifyListeners();
       
       final ref = _database.ref('bulletins').push();
+      
+      // ⚡ ANR önleme: 8 saniye timeout
       await ref.set({
         'userId': userId,
         'status': 'pending', // pending, analyzing, completed, failed
         'createdAt': DateTime.now().millisecondsSinceEpoch,
         'analyzedAt': null,
         'analysis': null,
-      });
+      }).timeout(
+        const Duration(seconds: 8),
+        onTimeout: () {
+          debugPrint('⚠️ Bülten oluşturma zaman aşımı');
+          throw TimeoutException('Bülten oluşturma 8 saniyeyi aştı');
+        },
+      );
       
       _isLoading = false;
       notifyListeners();
       
-      print('✅ Yeni bülten oluşturuldu: ${ref.key}');
+      debugPrint('✅ Yeni bülten oluşturuldu: ${ref.key}');
       return ref.key;
     } catch (e) {
       _isLoading = false;
       _errorMessage = 'Bülten oluşturulurken hata oluştu: $e';
       notifyListeners();
-      print('❌ Bülten oluşturma hatası: $e');
+      debugPrint('❌ Bülten oluşturma hatası: $e');
       return null;
     }
   }
@@ -85,10 +105,18 @@ class BulletinProvider extends ChangeNotifier {
   Future<void> updateBulletinStatus(String bulletinId, String status) async {
     try {
       final ref = _database.ref('bulletins/$bulletinId');
+      
+      // ⚡ ANR önleme: 5 saniye timeout
       await ref.update({
         'status': status,
         'analyzedAt': status == 'completed' ? DateTime.now().millisecondsSinceEpoch : null,
-      });
+      }).timeout(
+        const Duration(seconds: 5),
+        onTimeout: () {
+          debugPrint('⚠️ Bülten durumu güncelleme zaman aşımı');
+          throw TimeoutException('Bülten durumu güncelleme 5 saniyeyi aştı');
+        },
+      );
       
       // Listeyi güncelle
       final index = _bulletins.indexWhere((b) => b.id == bulletinId);
@@ -100,9 +128,9 @@ class BulletinProvider extends ChangeNotifier {
         notifyListeners();
       }
       
-      print('✅ Bülten durumu güncellendi: $status');
+      debugPrint('✅ Bülten durumu güncellendi: $status');
     } catch (e) {
-      print('❌ Durum güncelleme hatası: $e');
+      debugPrint('❌ Durum güncelleme hatası: $e');
     }
   }
   
@@ -130,9 +158,9 @@ class BulletinProvider extends ChangeNotifier {
         notifyListeners();
       }
       
-      print('✅ Bülten analizi güncellendi');
+      debugPrint('✅ Bülten analizi güncellendi');
     } catch (e) {
-      print('❌ Analiz güncelleme hatası: $e');
+      debugPrint('❌ Analiz güncelleme hatası: $e');
       await updateBulletinStatus(bulletinId, 'failed');
     }
   }
@@ -151,7 +179,7 @@ class BulletinProvider extends ChangeNotifier {
     } catch (e) {
       _errorMessage = 'Bülten detayı alınırken hata oluştu: $e';
       notifyListeners();
-      print('❌ Bülten detay hatası: $e');
+      debugPrint('❌ Bülten detay hatası: $e');
       return null;
     }
   }
@@ -165,12 +193,12 @@ class BulletinProvider extends ChangeNotifier {
       _bulletins.removeWhere((b) => b.id == bulletinId);
       notifyListeners();
       
-      print('✅ Bülten silindi: $bulletinId');
+      debugPrint('✅ Bülten silindi: $bulletinId');
       return true;
     } catch (e) {
       _errorMessage = 'Bülten silinirken hata oluştu: $e';
       notifyListeners();
-      print('❌ Bülten silme hatası: $e');
+      debugPrint('❌ Bülten silme hatası: $e');
       return false;
     }
   }

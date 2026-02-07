@@ -36,20 +36,15 @@ class RewardedAdService {
   Function(String)? onError;
 
   /// ✅ PRE-LOADING: Reklamı önceden yükle (uygulama başlangıcında)
+  /// 🚀 AGRESİF STRATEJI: Cooldown kontrolü YAPMA - Her zaman yükle
+  /// Gösterim sırasında cooldown kontrol edilecek
   Future<void> preloadAd() async {
     if (_isLoading || _isAdLoaded) {
       debugPrint('⚠️ Reklam zaten yükleniyor veya yüklenmiş');
       return;
     }
 
-    // Cooldown kontrolü
-    final canWatch = await canWatchAd();
-    if (!canWatch) {
-      debugPrint('⏰ Cooldown dolmadı, pre-loading atlanıyor');
-      return;
-    }
-
-    debugPrint('🚀 Pre-loading rewarded ad...');
+    debugPrint('🚀 Pre-loading rewarded ad (AGRESİF MOD - cooldown yok)...');
     await loadAd();
   }
 

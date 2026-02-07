@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/bulletin_provider.dart';
 import '../../l10n/app_localizations.dart';
+import '../../services/interstitial_ad_service.dart';
 
 class UploadScreen extends StatefulWidget {
   const UploadScreen({super.key});
@@ -17,9 +18,18 @@ class UploadScreen extends StatefulWidget {
 
 class _UploadScreenState extends State<UploadScreen> {
   final ImagePicker _picker = ImagePicker();
+  final InterstitialAdService _adService = InterstitialAdService();
+  
   Uint8List? _imageBytes;
   String? _imageName;
   bool _isUploading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Analiz reklamını önceden yükle
+    _adService.loadAnalysisAd();
+  }
 
   Future<void> _pickImage(ImageSource source) async {
     final loc = AppLocalizations.of(context)!;
@@ -73,19 +83,35 @@ class _UploadScreenState extends State<UploadScreen> {
       // Base64 encode (görsel kaydedilmeyecek, sadece analiz için kullanılacak)
       final base64Image = base64Encode(_imageBytes!);
 
-      // Realtime Database'e bülten kaydı oluştur (görsel kaydedilmiyor)
+      // 1️⃣ ARKA PLANDA: Realtime Database'e bülten kaydı oluştur
       final bulletinId = await bulletinProvider.createBulletin(
         userId: userId,
       );
 
-      if (bulletinId != null && mounted) {
-        // Kredi düş
-        final creditUsed = await authProvider.useCredit(analysisId: bulletinId);
-        
-        if (!creditUsed) {
-          throw Exception(loc.t('credit_usage_failed'));
-        }
+      if (bulletinId == null) {
+        throw Exception('Bülten oluşturulamadı');
+      }
 
+      // 2️⃣ ARKA PLANDA: Kredi düş
+      final creditUsed = await authProvider.useCredit(analysisId: bulletinId);
+      
+      if (!creditUsed) {
+        throw Exception(loc.t('credit_usage_failed'));
+      }
+
+      debugPrint('✅ Bülten oluşturuldu ve kredi düşüldü: $bulletinId');
+
+      // 3️⃣ REKLAMI GÖSTER (varsa)
+      final adShown = await _adService.showAnalysisAd();
+      if (adShown) {
+        debugPrint('📺 Analiz reklamı gösterildi');
+      } else {
+        debugPrint('⚠️ Analiz reklamı gösterilemedi veya yüklenmedi - analiz devam ediyor');
+      }
+
+      // 4️⃣ REKLAM BİTTİKTEN SONRA: Analiz ekranına yönlendir
+      // Analiz servisi arka planda çalışmaya devam edecek
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(loc.t('bulletin_uploaded_successfully')),
@@ -95,6 +121,9 @@ class _UploadScreenState extends State<UploadScreen> {
 
         // Analiz ekranına yönlendir (base64 image ile)
         context.go('/analysis/$bulletinId', extra: base64Image);
+        
+        // Yeni bir analiz reklamı yükle (sonraki analiz için)
+        _adService.loadAnalysisAd();
       }
     } catch (e) {
       print('❌ Yükleme hatası: $e');

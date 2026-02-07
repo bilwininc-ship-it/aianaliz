@@ -5,8 +5,9 @@ import './remote_config_service.dart';
 
 /// Interstitial Ad Service
 /// 
-/// Geçmiş (History) ekranı için reklam servisi.
-/// Kullanıcı ücretsiz üyeyse ve son X saat içinde reklam izlemediyse gösterilir.
+/// Geçmiş (History) ekranı ve Analiz başlangıcı için reklam servisi.
+/// - History: Kullanıcı ücretsiz üyeyse ve son X saat içinde reklam izlemediyse gösterilir.
+/// - Analysis: Her analiz başlangıcında gösterilir (threshold kontrolü yok).
 /// ⚡ KULLANICI DOSTU: Ekran açılışında değil, detay tıklamasında gösterilir.
 class InterstitialAdService {
   static final InterstitialAdService _instance = InterstitialAdService._internal();
@@ -15,9 +16,15 @@ class InterstitialAdService {
 
   final RemoteConfigService _remoteConfig = RemoteConfigService();
   
+  // History reklamı için
   InterstitialAd? _interstitialAd;
   bool _isAdLoaded = false;
   bool _isLoading = false;
+
+  // Analiz reklamı için (ayrı instance)
+  InterstitialAd? _analysisAd;
+  bool _isAnalysisAdLoaded = false;
+  bool _isAnalysisAdLoading = false;
 
   // Callbacks
   Function()? onAdLoaded;
@@ -191,6 +198,96 @@ class InterstitialAdService {
       debugPrint('❌ Gösterim zamanı kaydetme hatası: $e');
     }
   }
+  /// ========== ANALİZ REKLAMI METODLARİ ==========
+  
+  /// Analiz reklamını yükle (threshold kontrolü YOK)
+  Future<void> loadAnalysisAd() async {
+    if (_isAnalysisAdLoading || _isAnalysisAdLoaded) {
+      debugPrint('⚠️ Analiz reklamı zaten yükleniyor veya yüklenmiş');
+      return;
+    }
+
+    _isAnalysisAdLoading = true;
+
+    try {
+      // Test Ad Unit ID (geliştirme için)
+      String adUnitId = 'ca-app-pub-6066935997419400/9631151157'; // gercek Interstitial ID
+      
+      // Remote Config'den gerçek ID al (production'da)
+      final remoteAdUnit = _remoteConfig.admobInterstitialAdUnit;
+      if (remoteAdUnit.isNotEmpty && !remoteAdUnit.contains('~')) {
+        adUnitId = remoteAdUnit;
+        debugPrint('✅ Remote Config Analysis Ad Unit kullanılıyor');
+      } else {
+        debugPrint('🔧 Test Analysis Ad Unit kullanılıyor');
+      }
+
+      await InterstitialAd.load(
+        adUnitId: adUnitId,
+        request: const AdRequest(),
+        adLoadCallback: InterstitialAdLoadCallback(
+          onAdLoaded: (ad) {
+            _analysisAd = ad;
+            _isAnalysisAdLoaded = true;
+            _isAnalysisAdLoading = false;
+            debugPrint('✅ Analiz reklamı yüklendi');
+            _setupAnalysisAdCallbacks();
+          },
+          onAdFailedToLoad: (error) {
+            _isAnalysisAdLoading = false;
+            _isAnalysisAdLoaded = false;
+            debugPrint('❌ Analiz reklamı yükleme hatası: $error');
+            // ⚡ HATA YÖNETİMİ: Kullanıcıyı bekletme, analiz devam etsin
+          },
+        ),
+      );
+    } catch (e) {
+      _isAnalysisAdLoading = false;
+      _isAnalysisAdLoaded = false;
+      debugPrint('❌ Analiz reklamı yükleme hatası: $e');
+    }
+  }
+
+  /// Analiz reklamı callback'lerini ayarla
+  void _setupAnalysisAdCallbacks() {
+    if (_analysisAd == null) return;
+
+    _analysisAd!.fullScreenContentCallback = FullScreenContentCallback(
+      onAdShowedFullScreenContent: (ad) {
+        debugPrint('📺 Analiz reklamı gösterildi');
+      },
+      onAdDismissedFullScreenContent: (ad) {
+        debugPrint('✅ Analiz reklamı kapatıldı');
+        _isAnalysisAdLoaded = false;
+        ad.dispose();
+        _analysisAd = null;
+      },
+      onAdFailedToShowFullScreenContent: (ad, error) {
+        debugPrint('❌ Analiz reklamı gösterim hatası: $error');
+        _isAnalysisAdLoaded = false;
+        ad.dispose();
+        _analysisAd = null;
+      },
+    );
+  }
+
+  /// Analiz reklamını göster (threshold kontrolü YOK)
+  /// ⚡ FAIL-SAFE: Reklam yüklenemezse analiz devam eder
+  Future<bool> showAnalysisAd() async {
+    if (!_isAnalysisAdLoaded || _analysisAd == null) {
+      debugPrint('⚠️ Analiz reklamı henüz yüklenmedi - analiz devam edecek');
+      return false;
+    }
+
+    try {
+      await _analysisAd!.show();
+      debugPrint('✅ Analiz reklamı gösterildi');
+      return true;
+    } catch (e) {
+      debugPrint('❌ Analiz reklamı gösterme hatası: $e');
+      return false;
+    }
+  }
 
   /// Servisi temizle
   void dispose() {
@@ -198,9 +295,17 @@ class InterstitialAdService {
     _interstitialAd = null;
     _isAdLoaded = false;
     _isLoading = false;
+    
+    // Analiz reklamını da temizle
+    _analysisAd?.dispose();
+    _analysisAd = null;
+    _isAnalysisAdLoaded = false;
+    _isAnalysisAdLoading = false;
   }
 
   /// Getters
   bool get isAdLoaded => _isAdLoaded;
   bool get isLoading => _isLoading;
+  bool get isAnalysisAdLoaded => _isAnalysisAdLoaded;
+  bool get isAnalysisAdLoading => _isAnalysisAdLoading;
 }

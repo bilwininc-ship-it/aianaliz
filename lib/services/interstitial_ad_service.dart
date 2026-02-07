@@ -1,14 +1,16 @@
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:async';
 import './remote_config_service.dart';
 
-/// Interstitial Ad Service
+/// 🚀 Interstitial Ad Service (OPTIMIZE EDİLMİŞ - SHOW RATE ARTIŞI)
 /// 
-/// Geçmiş (History) ekranı ve Analiz başlangıcı için reklam servisi.
-/// - History: Kullanıcı ücretsiz üyeyse ve son X saat içinde reklam izlemediyse gösterilir.
-/// - Analysis: Her analiz başlangıcında gösterilir (threshold kontrolü yok).
-/// ⚡ KULLANICI DOSTU: Ekran açılışında değil, detay tıklamasında gösterilir.
+/// ✅ Exponential backoff retry (5 deneme, max 30s delay)
+/// ✅ Aggressive auto-reload (0 saniye delay - anında yükleme)
+/// ✅ Pre-loading + Auto-reload stratejisi
+/// ✅ Parallel loading için ayrı instance'lar
+/// 🎯 HEDEF: %100 Show Rate
 class InterstitialAdService {
   static final InterstitialAdService _instance = InterstitialAdService._internal();
   factory InterstitialAdService() => _instance;
@@ -20,11 +22,15 @@ class InterstitialAdService {
   InterstitialAd? _interstitialAd;
   bool _isAdLoaded = false;
   bool _isLoading = false;
+  int _retryAttempt = 0;
+  Timer? _retryTimer;
 
   // Analiz reklamı için (ayrı instance)
   InterstitialAd? _analysisAd;
   bool _isAnalysisAdLoaded = false;
   bool _isAnalysisAdLoading = false;
+  int _analysisRetryAttempt = 0;
+  Timer? _analysisRetryTimer;
 
   // Callbacks
   Function()? onAdLoaded;
@@ -77,7 +83,7 @@ class InterstitialAdService {
     }
   }
 
-  /// Interstitial reklamı yükle
+  /// 🚀 Interstitial reklamı yükle (EXPONENTIAL BACKOFF ile)
   Future<void> loadAd() async {
     if (_isLoading || _isAdLoaded) {
       debugPrint('⚠️ Reklam zaten yükleniyor veya yüklenmiş');
@@ -87,8 +93,8 @@ class InterstitialAdService {
     _isLoading = true;
 
     try {
-      // Test Ad Unit ID (geliştirme için)
-      String adUnitId = 'ca-app-pub-6066935997419400/9631151157'; // gercek Interstitial ID
+      // CANLI Ad Unit ID
+      String adUnitId = 'ca-app-pub-6066935997419400/9631151157';
       
       // Remote Config'den gerçek ID al (production'da)
       final remoteAdUnit = _remoteConfig.admobInterstitialAdUnit;
@@ -96,71 +102,112 @@ class InterstitialAdService {
         adUnitId = remoteAdUnit;
         debugPrint('✅ Remote Config Interstitial Ad Unit kullanılıyor');
       } else {
-        debugPrint('🔧 Test Interstitial Ad Unit kullanılıyor');
+        debugPrint('✅ Canlı Interstitial Ad Unit kullanılıyor: $adUnitId');
       }
 
       await InterstitialAd.load(
         adUnitId: adUnitId,
-        request: const AdRequest(),
+        request: const AdRequest(
+          keywords: ['sports', 'football', 'soccer', 'betting', 'analysis'],
+        ),
         adLoadCallback: InterstitialAdLoadCallback(
           onAdLoaded: (ad) {
             _interstitialAd = ad;
             _isAdLoaded = true;
             _isLoading = false;
-            debugPrint('✅ Interstitial reklam yüklendi');
+            _retryAttempt = 0; // ✅ Retry counter reset
+            debugPrint('✅ Interstitial reklam yüklendi (History)');
             onAdLoaded?.call();
             _setupAdCallbacks();
           },
           onAdFailedToLoad: (error) {
             _isLoading = false;
             _isAdLoaded = false;
-            debugPrint('❌ Interstitial reklam yükleme hatası: $error');
+            debugPrint('❌ Interstitial reklam yükleme hatası (History): ${error.code} - ${error.message}');
             onAdFailedToLoad?.call();
-            // ⚡ HATA YÖNETİMİ: Kullanıcıyı bekletme, devam et
-            onError?.call('Reklam yüklenemedi (kullanıcı etkilenmez)');
+            
+            // ✅ EXPONENTIAL BACKOFF RETRY
+            _scheduleRetry();
           },
         ),
       );
     } catch (e) {
       _isLoading = false;
       _isAdLoaded = false;
-      debugPrint('❌ Reklam yükleme hatası: $e');
+      debugPrint('❌ Reklam yükleme exception (History): $e');
       onError?.call('Reklam yükleme hatası: $e');
+      
+      // ✅ Retry mekanizması
+      _scheduleRetry();
     }
   }
 
-  /// Reklam callback'lerini ayarla
+  /// ✅ EXPONENTIAL BACKOFF: Yeniden deneme mekanizması (History)
+  void _scheduleRetry() {
+    if (_retryAttempt >= 5) {
+      debugPrint('❌ Maksimum retry sayısına ulaşıldı (5) - History Ad');
+      return;
+    }
+
+    _retryAttempt++;
+    
+    // Exponential backoff: 2s, 4s, 8s, 16s, 30s (max)
+    final delaySeconds = (1 << _retryAttempt).clamp(2, 30);
+    
+    debugPrint('🔄 History Ad Retry #$_retryAttempt - $delaySeconds saniye sonra...');
+    
+    _retryTimer?.cancel();
+    _retryTimer = Timer(Duration(seconds: delaySeconds), () {
+      debugPrint('🔄 History Ad Retry #$_retryAttempt başlatılıyor...');
+      loadAd();
+    });
+  }
+
+  /// Reklam callback'lerini ayarla (History)
   void _setupAdCallbacks() {
     if (_interstitialAd == null) return;
 
     _interstitialAd!.fullScreenContentCallback = FullScreenContentCallback(
       onAdShowedFullScreenContent: (ad) {
-        debugPrint('📺 Interstitial reklam gösterildi');
+        debugPrint('📺 Interstitial reklam gösterildi (History)');
         onAdShown?.call();
       },
       onAdDismissedFullScreenContent: (ad) {
-        debugPrint('✅ Interstitial reklam kapatıldı');
+        debugPrint('✅ Interstitial reklam kapatıldı (History)');
         _isAdLoaded = false;
         ad.dispose();
         _interstitialAd = null;
         onAdClosed?.call();
+        
+        // 🚀 AGGRESSIVE AUTO-RELOAD: ANINDA yeni reklam yükle
+        debugPrint('🚀 AGGRESSIVE AUTO-RELOAD: Yeni History reklamı yükleniyor...');
+        loadAd();
       },
       onAdFailedToShowFullScreenContent: (ad, error) {
-        debugPrint('❌ Interstitial reklam gösterim hatası: $error');
+        debugPrint('❌ Interstitial reklam gösterim hatası (History): $error');
         _isAdLoaded = false;
         ad.dispose();
         _interstitialAd = null;
         onError?.call('Reklam gösterilemedi');
+        
+        // 🚀 AGGRESSIVE AUTO-RELOAD: Hata sonrası da yükle
+        debugPrint('🚀 AGGRESSIVE AUTO-RELOAD: Hata sonrası yeni reklam yükleniyor...');
+        _scheduleRetry();
       },
     );
   }
 
-  /// Interstitial reklamı göster
+  /// Interstitial reklamı göster (History)
   /// ⚡ FAIL-SAFE: Reklam yüklenemezse kullanıcıyı bekletmez
   Future<bool> showAd() async {
     if (!_isAdLoaded || _interstitialAd == null) {
-      debugPrint('⚠️ Interstitial reklam henüz yüklenmedi - kullanıcı devam edebilir');
+      debugPrint('⚠️ Interstitial reklam henüz yüklenmedi (History) - kullanıcı devam edebilir');
       onError?.call('Reklam hazır değil (kullanıcı geçebilir)');
+      
+      // 🚀 Eğer yüklenmemişse hemen yüklemeyi dene
+      if (!_isLoading) {
+        loadAd();
+      }
       return false;
     }
 
@@ -179,7 +226,7 @@ class InterstitialAdService {
       
       return true;
     } catch (e) {
-      debugPrint('❌ Reklam gösterme hatası: $e');
+      debugPrint('❌ Reklam gösterme hatası (History): $e');
       onError?.call('Reklam gösterme hatası');
       return false;
     }
@@ -198,9 +245,10 @@ class InterstitialAdService {
       debugPrint('❌ Gösterim zamanı kaydetme hatası: $e');
     }
   }
-  /// ========== ANALİZ REKLAMI METODLARİ ==========
+
+  // ========== ANALİZ REKLAMI METODLARİ (OPTİMİZE EDİLMİŞ) ==========
   
-  /// Analiz reklamını yükle (threshold kontrolü YOK)
+  /// 🚀 Analiz reklamını yükle (EXPONENTIAL BACKOFF ile)
   Future<void> loadAnalysisAd() async {
     if (_isAnalysisAdLoading || _isAnalysisAdLoaded) {
       debugPrint('⚠️ Analiz reklamı zaten yükleniyor veya yüklenmiş');
@@ -210,8 +258,8 @@ class InterstitialAdService {
     _isAnalysisAdLoading = true;
 
     try {
-      // Test Ad Unit ID (geliştirme için)
-      String adUnitId = 'ca-app-pub-6066935997419400/9631151157'; // gercek Interstitial ID
+      // CANLI Ad Unit ID
+      String adUnitId = 'ca-app-pub-6066935997419400/9631151157';
       
       // Remote Config'den gerçek ID al (production'da)
       final remoteAdUnit = _remoteConfig.admobInterstitialAdUnit;
@@ -219,33 +267,62 @@ class InterstitialAdService {
         adUnitId = remoteAdUnit;
         debugPrint('✅ Remote Config Analysis Ad Unit kullanılıyor');
       } else {
-        debugPrint('🔧 Test Analysis Ad Unit kullanılıyor');
+        debugPrint('✅ Canlı Analysis Ad Unit kullanılıyor: $adUnitId');
       }
 
       await InterstitialAd.load(
         adUnitId: adUnitId,
-        request: const AdRequest(),
+        request: const AdRequest(
+          keywords: ['sports', 'football', 'soccer', 'betting', 'analysis'],
+        ),
         adLoadCallback: InterstitialAdLoadCallback(
           onAdLoaded: (ad) {
             _analysisAd = ad;
             _isAnalysisAdLoaded = true;
             _isAnalysisAdLoading = false;
+            _analysisRetryAttempt = 0; // ✅ Retry counter reset
             debugPrint('✅ Analiz reklamı yüklendi');
             _setupAnalysisAdCallbacks();
           },
           onAdFailedToLoad: (error) {
             _isAnalysisAdLoading = false;
             _isAnalysisAdLoaded = false;
-            debugPrint('❌ Analiz reklamı yükleme hatası: $error');
-            // ⚡ HATA YÖNETİMİ: Kullanıcıyı bekletme, analiz devam etsin
+            debugPrint('❌ Analiz reklamı yükleme hatası: ${error.code} - ${error.message}');
+            
+            // ✅ EXPONENTIAL BACKOFF RETRY
+            _scheduleAnalysisRetry();
           },
         ),
       );
     } catch (e) {
       _isAnalysisAdLoading = false;
       _isAnalysisAdLoaded = false;
-      debugPrint('❌ Analiz reklamı yükleme hatası: $e');
+      debugPrint('❌ Analiz reklamı yükleme exception: $e');
+      
+      // ✅ Retry mekanizması
+      _scheduleAnalysisRetry();
     }
+  }
+
+  /// ✅ EXPONENTIAL BACKOFF: Yeniden deneme mekanizması (Analysis)
+  void _scheduleAnalysisRetry() {
+    if (_analysisRetryAttempt >= 5) {
+      debugPrint('❌ Maksimum retry sayısına ulaşıldı (5) - Analysis Ad');
+      return;
+    }
+
+    _analysisRetryAttempt++;
+    
+    // Exponential backoff: 2s, 4s, 8s, 16s, 30s (max)
+    final delaySeconds = (1 << _analysisRetryAttempt).clamp(2, 30);
+    
+    debugPrint('🔄 Analysis Ad Retry #$_analysisRetryAttempt - $delaySeconds saniye sonra...');
+    
+    _analysisRetryTimer?.cancel();
+    _analysisRetryTimer = Timer(Duration(seconds: delaySeconds), () {
+      debugPrint('🔄 Analysis Ad Retry #$_analysisRetryAttempt başlatılıyor...');
+      loadAnalysisAd();
+    });
   }
 
   /// Analiz reklamı callback'lerini ayarla
@@ -261,12 +338,20 @@ class InterstitialAdService {
         _isAnalysisAdLoaded = false;
         ad.dispose();
         _analysisAd = null;
+        
+        // 🚀 AGGRESSIVE AUTO-RELOAD: ANINDA yeni reklam yükle
+        debugPrint('🚀 AGGRESSIVE AUTO-RELOAD: Yeni Analysis reklamı yükleniyor...');
+        loadAnalysisAd();
       },
       onAdFailedToShowFullScreenContent: (ad, error) {
         debugPrint('❌ Analiz reklamı gösterim hatası: $error');
         _isAnalysisAdLoaded = false;
         ad.dispose();
         _analysisAd = null;
+        
+        // 🚀 AGGRESSIVE AUTO-RELOAD: Hata sonrası da yükle
+        debugPrint('🚀 AGGRESSIVE AUTO-RELOAD: Hata sonrası yeni Analysis reklamı yükleniyor...');
+        _scheduleAnalysisRetry();
       },
     );
   }
@@ -276,6 +361,11 @@ class InterstitialAdService {
   Future<bool> showAnalysisAd() async {
     if (!_isAnalysisAdLoaded || _analysisAd == null) {
       debugPrint('⚠️ Analiz reklamı henüz yüklenmedi - analiz devam edecek');
+      
+      // 🚀 Eğer yüklenmemişse hemen yüklemeyi dene
+      if (!_isAnalysisAdLoading) {
+        loadAnalysisAd();
+      }
       return false;
     }
 
@@ -291,16 +381,21 @@ class InterstitialAdService {
 
   /// Servisi temizle
   void dispose() {
+    // History reklamı temizleme
+    _retryTimer?.cancel();
     _interstitialAd?.dispose();
     _interstitialAd = null;
     _isAdLoaded = false;
     _isLoading = false;
+    _retryAttempt = 0;
     
-    // Analiz reklamını da temizle
+    // Analiz reklamı temizleme
+    _analysisRetryTimer?.cancel();
     _analysisAd?.dispose();
     _analysisAd = null;
     _isAnalysisAdLoaded = false;
     _isAnalysisAdLoading = false;
+    _analysisRetryAttempt = 0;
   }
 
   /// Getters
@@ -308,4 +403,6 @@ class InterstitialAdService {
   bool get isLoading => _isLoading;
   bool get isAnalysisAdLoaded => _isAnalysisAdLoaded;
   bool get isAnalysisAdLoading => _isAnalysisAdLoading;
+  int get retryAttempt => _retryAttempt;
+  int get analysisRetryAttempt => _analysisRetryAttempt;
 }

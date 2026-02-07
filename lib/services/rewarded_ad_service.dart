@@ -205,10 +205,9 @@ class RewardedAdService {
         ad.dispose();
         _rewardedAd = null;
         
-        // ✅ Otomatik yeniden yükleme
-        Future.delayed(const Duration(seconds: 2), () {
-          preloadAd();
-        });
+        // 🚀 AGGRESSIVE AUTO-RELOAD: ANINDA yeni reklam yükle (0 saniye delay)
+        debugPrint('🚀 AGGRESSIVE AUTO-RELOAD: Yeni Rewarded reklamı yükleniyor...');
+        preloadAd();
       },
       onAdFailedToShowFullScreenContent: (ad, error) {
         debugPrint('❌ Ödüllü reklam gösterim hatası: $error');
@@ -217,7 +216,8 @@ class RewardedAdService {
         _rewardedAd = null;
         onError?.call('Reklam gösterilemedi');
         
-        // ✅ Retry
+        // 🚀 AGGRESSIVE AUTO-RELOAD: Hata sonrası da anında retry
+        debugPrint('🚀 AGGRESSIVE AUTO-RELOAD: Hata sonrası yeni reklam yükleniyor...');
         _scheduleRetry();
       },
     );

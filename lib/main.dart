@@ -7,6 +7,7 @@ import 'firebase_options.dart';
 import 'services/remote_config_service.dart';
 import 'services/app_startup_service.dart';
 import 'services/interstitial_ad_service.dart';
+import 'services/rewarded_ad_service.dart';
 import 'core/routes/app_router.dart';
 import 'providers/auth_provider.dart';
 import 'providers/bulletin_provider.dart';
@@ -38,13 +39,28 @@ void main() async {
     debugPrint('❌ Google Mobile Ads başlatma hatası: $e');
   }
   
-  // ✅ ANALİZ REKLAMINI ÖNCEDEN YÜKLE (Uygulama açılışında)
+  // ✅ ÖDÜLLÜ REKLAMI ÖNCEDEN YÜKLE (Kredi Kazan için)
+  try {
+    final rewardedAdService = RewardedAdService();
+    await rewardedAdService.preloadAd();
+    debugPrint('✅ Ödüllü reklam önceden yüklendi');
+  } catch (e) {
+    debugPrint('❌ Ödüllü reklam yükleme hatası: $e');
+  }
+  
+  // ✅ GEÇIŞ REKLAMLARINI ÖNCEDEN YÜKLE (History ve Analiz için)
   try {
     final interstitialAdService = InterstitialAdService();
+    
+    // History ekranı reklamı
     await interstitialAdService.loadAd();
+    debugPrint('✅ History reklamı önceden yüklendi');
+    
+    // Analiz ekranı reklamı (ayrı instance)
+    await interstitialAdService.loadAnalysisAd();
     debugPrint('✅ Analiz reklamı önceden yüklendi');
   } catch (e) {
-    debugPrint('❌ Analiz reklamı yükleme hatası: $e');
+    debugPrint('❌ Geçiş reklamı yükleme hatası: $e');
   }
   
   // Remote Config initialize
